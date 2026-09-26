@@ -24,6 +24,8 @@ import { adminService } from '../services/adminService';
 import { roomLimitService } from '../services/roomLimitService';
 import { useToastStore } from '../components/ui/Toast';
 import { Link } from 'react-router-dom';
+import { AudioUploadModal } from '../components/studio/AudioUploadModal';
+import { UploadCloud } from 'lucide-react';
 
 export const AdminDashboardPage: React.FC = () => {
   const addToast = useToastStore((s) => s.addToast);
@@ -56,6 +58,12 @@ export const AdminDashboardPage: React.FC = () => {
   // New tag/genre input
   const [newGenreInput, setNewGenreInput] = useState('');
   const [newTagInput, setNewTagInput] = useState('');
+  const [showStudioUploadModal, setShowStudioUploadModal] = useState(false);
+
+  const handleStudioTrackUploaded = (newTrack: Track) => {
+    setTracks((prev) => [newTrack, ...prev]);
+    addToast(`Track "${newTrack.title}" added to catalog`, 'success');
+  };
 
   // Audio preview
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
@@ -629,13 +637,22 @@ export const AdminDashboardPage: React.FC = () => {
               />
             </div>
 
-            <button
-              onClick={() => setShowAddTrackModal(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-accent-cream text-bg text-xs font-semibold hover:bg-accent-creamHover transition-colors shadow-glow-subtle self-start sm:self-auto"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Audio Track</span>
-            </button>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                onClick={() => setShowStudioUploadModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition shadow-glow-subtle"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>Studio Audio Upload</span>
+              </button>
+              <button
+                onClick={() => setShowAddTrackModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-text-primary text-xs font-semibold hover:border-accent-cream transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Manual URL</span>
+              </button>
+            </div>
           </div>
 
           <div className="bg-surface-elevated/40 border border-border rounded-2xl overflow-hidden">
@@ -975,6 +992,13 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Audio Studio Upload Modal */}
+      <AudioUploadModal
+        isOpen={showStudioUploadModal}
+        onClose={() => setShowStudioUploadModal(false)}
+        onUploaded={handleStudioTrackUploaded}
+      />
     </div>
   );
 };

@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { Track, PlaybackStatus, DriftMetrics, SyncEvent, QueueItem } from '../types';
 import { globalAudioEngine } from '../lib/AudioPlayer';
 import { realtimeService } from '../services/realtimeService';
-import { DEMO_TRACKS, CURRENT_USER } from '../data/mockData';
+import { DEMO_TRACKS } from '../data/mockData';
+import { useAuthStore } from './useAuthStore';
+import { trackService } from '../services/trackService';
 
 interface PlaybackStore {
   currentRoomId: string | null;
@@ -14,24 +16,44 @@ interface PlaybackStore {
   isMuted: boolean;
   isShuffled: boolean;
   isRepeating: boolean;
+  isHost: boolean;
+  isSoloMode: boolean; // if true, listener's playback is detached from host broadcast
   revision: number;
   serverTimestamp: number;
   driftMetrics: DriftMetrics;
+  lastHeartbeat?: {
+    trackId: string;
+    position: number;
+    status: PlaybackStatus;
+    serverTimestamp: number;
+  };
 
   // Actions
-  initRoom: (roomId: string, initialTrack?: Track) => () => void;
+  setIsHost: (isHost: boolean) => void;
+  toggleSoloMode: () => void;
+  initRoom: (roomId: string, initialTrack?: Track, isHostUser?: boolean) => () => void;
   setTrack: (track: Track, autoPlay?: boolean, broadcast?: boolean) => void;
   play: (broadcast?: boolean) => Promise<void>;
   pause: (broadcast?: boolean) => void;
   togglePlay: () => void;
   seek: (seconds: number, broadcast?: boolean) => void;
+  resyncNow: () => void;
   nextTrack: (queue: QueueItem[]) => void;
   previousTrack: (queue: QueueItem[]) => void;
   setVolume: (vol: number) => void;
   toggleMute: () => void;
   toggleShuffle: () => void;
   toggleRepeat: () => void;
-  syncFromRemoteEvent: (event: SyncEvent) => void;
+  syncFromRemoteEvent: (event: SyncEvent) => Promise<void>;
+  broadcastHeartbeat: () => void;
+}
+
+function getCurrentUserId(): string {
+  try {
+    return useAuthStore.getState().currentUser?.id || 'usr_guest';
+  } catch {
+    return 'usr_guest';
+  }
 }
 
 export const usePlaybackStore = create<PlaybackStore>((set, get) => {
@@ -52,7 +74,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
         get().seek(0, true);
         get().play(true);
       } else {
-        // Trigger auto advance if next track exists
+        // Paused upon finish, host will handle queue advance
         set({ status: 'paused', position: 0 });
       }
     },
@@ -68,6 +90,8 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     isMuted: false,
     isShuffled: false,
     isRepeating: false,
+    isHost: false,
+    isSoloMode: false,
     revision: 1,
     serverTimestamp: Date.now(),
     driftMetrics: {
@@ -77,12 +101,25 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       lastCalculated: Date.now(),
     },
 
-    initRoom: (roomId: string, initialTrack?: Track) => {
+    setIsHost: (isHost: boolean) => set({ isHost }),
+
+    toggleSoloMode: () => {
+      const next = !get().isSoloMode;
+      set({ isSoloMode: next });
+      if (!next) {
+        // Leaving solo mode -> snap back to host sync immediately
+        get().resyncNow();
+      }
+    },
+
+    initRoom: (roomId: string, initialTrack?: Track, isHostUser: boolean = false) => {
       const trackToPlay = initialTrack || get().currentTrack || DEMO_TRACKS[0];
       set({
         currentRoomId: roomId,
         currentTrack: trackToPlay,
         duration: trackToPlay.duration,
+        isHost: isHostUser,
+        isSoloMode: false,
       });
 
       globalAudioEngine.loadTrack(trackToPlay.audioUrl, false);
@@ -113,7 +150,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
           get().currentRoomId!,
           'TRACK_CHANGE',
           { track, position: 0 },
-          CURRENT_USER.id
+          getCurrentUserId()
         );
       }
     },
@@ -142,7 +179,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
             position: currentPos,
             serverTimestamp: now,
           },
-          CURRENT_USER.id
+          getCurrentUserId()
         );
       }
     },
@@ -169,7 +206,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
             position: currentPos,
             serverTimestamp: now,
           },
-          CURRENT_USER.id
+          getCurrentUserId()
         );
       }
     },
@@ -203,9 +240,61 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
             status,
             serverTimestamp: now,
           },
-          CURRENT_USER.id
+          getCurrentUserId()
         );
       }
+    },
+
+    /**
+     * One-click hard resynchronize to the host's exact playback position
+     */
+    resyncNow: () => {
+      const { lastHeartbeat } = get();
+      if (!lastHeartbeat) return;
+
+      const expected = realtimeService.calculateExpectedPosition(
+        lastHeartbeat.position,
+        lastHeartbeat.serverTimestamp,
+        lastHeartbeat.status
+      );
+
+      globalAudioEngine.seek(expected);
+      if (lastHeartbeat.status === 'playing') {
+        globalAudioEngine.play();
+      } else {
+        globalAudioEngine.pause();
+      }
+
+      set({
+        position: expected,
+        status: lastHeartbeat.status,
+        driftMetrics: {
+          driftMs: 0,
+          status: 'synced',
+          latencyMs: 10,
+          lastCalculated: Date.now(),
+        },
+      });
+    },
+
+    broadcastHeartbeat: () => {
+      const { currentRoomId, currentTrack, status, isHost } = get();
+      if (!isHost || !currentRoomId || !currentTrack) return;
+
+      const now = Date.now();
+      const currentPos = globalAudioEngine.getCurrentTime();
+
+      realtimeService.broadcastEvent(
+        currentRoomId,
+        'SYNC_HEARTBEAT',
+        {
+          trackId: currentTrack.id,
+          position: currentPos,
+          status,
+          serverTimestamp: now,
+        },
+        getCurrentUserId()
+      );
     },
 
     nextTrack: (queue: QueueItem[]) => {
@@ -266,16 +355,59 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       set((s) => ({ isRepeating: !s.isRepeating }));
     },
 
-    syncFromRemoteEvent: (event: SyncEvent) => {
+    syncFromRemoteEvent: async (event: SyncEvent) => {
       const state = get();
       // Ignore own broadcasts
-      if (event.senderId === CURRENT_USER.id) return;
+      if (event.senderId === getCurrentUserId()) return;
+      // If listener is in Solo Mode, ignore remote sync
+      if (state.isSoloMode) return;
 
       switch (event.type) {
+        case 'SYNC_HEARTBEAT': {
+          const { trackId, position, status, serverTimestamp } = event.payload;
+
+          set({
+            lastHeartbeat: { trackId, position, status, serverTimestamp },
+          });
+
+          // If track changed on host, load the new track
+          if (state.currentTrack?.id !== trackId) {
+            const foundTrack = await trackService.getTrackById(trackId);
+            if (foundTrack) {
+              state.setTrack(foundTrack, status === 'playing', false);
+            }
+          }
+
+          const expected = realtimeService.calculateExpectedPosition(
+            position,
+            serverTimestamp,
+            status
+          );
+          const drift = realtimeService.evaluateDrift(globalAudioEngine.getCurrentTime(), expected);
+
+          // Apply intelligent smooth drift correction
+          globalAudioEngine.applyDriftCorrection(drift.action, drift.targetPosition, drift.driftMs);
+
+          // Sync status with host if diverged
+          if (status === 'playing' && !globalAudioEngine.isPlaying()) {
+            globalAudioEngine.play();
+          } else if (status === 'paused' && globalAudioEngine.isPlaying()) {
+            globalAudioEngine.pause();
+          }
+
+          set({
+            status,
+            driftMetrics: drift,
+            serverTimestamp,
+            revision: event.revision,
+          });
+          break;
+        }
+
         case 'PLAY': {
           const { trackId, position, serverTimestamp } = event.payload;
           if (state.currentTrack?.id !== trackId) {
-            const foundTrack = DEMO_TRACKS.find((t) => t.id === trackId);
+            const foundTrack = await trackService.getTrackById(trackId);
             if (foundTrack) {
               state.setTrack(foundTrack, false, false);
             }
@@ -294,12 +426,13 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
             serverTimestamp,
             revision: event.revision,
             driftMetrics: drift,
+            lastHeartbeat: { trackId, position, status: 'playing', serverTimestamp },
           });
           break;
         }
 
         case 'PAUSE': {
-          const { position, serverTimestamp } = event.payload;
+          const { trackId, position, serverTimestamp } = event.payload;
           globalAudioEngine.pause();
           globalAudioEngine.seek(position);
           set({
@@ -313,6 +446,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
               latencyMs: 12,
               lastCalculated: Date.now(),
             },
+            lastHeartbeat: { trackId: trackId || state.currentTrack?.id || '', position, status: 'paused', serverTimestamp },
           });
           break;
         }

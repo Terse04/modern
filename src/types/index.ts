@@ -165,6 +165,7 @@ export type SyncEventType =
   | 'PAUSE'
   | 'SEEK'
   | 'TRACK_CHANGE'
+  | 'SYNC_HEARTBEAT'
   | 'QUEUE_UPDATE'
   | 'PRESENCE_SYNC'
   | 'CHAT_MESSAGE'

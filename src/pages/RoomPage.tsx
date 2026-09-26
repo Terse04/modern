@@ -14,7 +14,7 @@ import {
   ThumbsUp,
   Send,
 } from 'lucide-react';
-import { Room, RoomMember, QueueItem, ChatMessage, FloatingReaction } from '../types';
+import { Room, RoomMember, QueueItem, ChatMessage, FloatingReaction, Track } from '../types';
 import { roomService } from '../services/roomService';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -27,9 +27,11 @@ import { AudioVisualizer, AuraModeSelector, VisualizerMode } from '../components
 import { ReactionOverlay } from '../components/room/ReactionOverlay';
 import { ShareInviteModal } from '../components/room/ShareInviteModal';
 import { RoomSettingsModal } from '../components/room/RoomSettingsModal';
-import { SyncedBadge } from '../components/ui/Badge';
+import { SyncControlHUD } from '../components/room/SyncControlHUD';
+import { AudioUploadModal } from '../components/studio/AudioUploadModal';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { useToastStore } from '../components/ui/Toast';
+import { Sparkles } from 'lucide-react';
 
 const REACTION_EMOJIS = ['🔥', '❤️', '🎵', '👏', '😍', '🤘', '💜', '✨'];
 
@@ -74,7 +76,6 @@ export const RoomPage: React.FC = () => {
     isMuted,
     isShuffled,
     isRepeating,
-    driftMetrics,
     initRoom,
     togglePlay,
     seek,
@@ -84,7 +85,12 @@ export const RoomPage: React.FC = () => {
     toggleRepeat,
     nextTrack,
     previousTrack,
+    setIsHost,
+    broadcastHeartbeat,
   } = usePlaybackStore();
+
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const isHostUser = Boolean(room && (room.host.id === currentUser.id || currentUser.isAdmin));
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -140,12 +146,31 @@ export const RoomPage: React.FC = () => {
     loadRoom();
   }, [roomId, navigate, addToast]);
 
+  // Sync Host identity to store
+  useEffect(() => {
+    setIsHost(isHostUser);
+  }, [isHostUser, setIsHost]);
+
+  // Host sync heartbeat: broadcasts timestamp and playback position every 2.5s while playing
+  useEffect(() => {
+    if (!isHostUser || status !== 'playing' || !room) return;
+
+    // Broadcast immediately on state change
+    broadcastHeartbeat();
+
+    const interval = setInterval(() => {
+      broadcastHeartbeat();
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [isHostUser, status, room, broadcastHeartbeat]);
+
   // Init playback
   useEffect(() => {
     if (!roomId || !room) return;
-    const cleanup = initRoom(roomId, room.currentTrack);
+    const cleanup = initRoom(roomId, room.currentTrack, isHostUser);
     return cleanup;
-  }, [roomId, room, initRoom]);
+  }, [roomId, room, initRoom, isHostUser]);
 
   // Broadcast presence when room is ready
   useEffect(() => {
@@ -229,6 +254,22 @@ export const RoomPage: React.FC = () => {
     [roomId, broadcastQueueUpdate]
   );
 
+  const handleTrackUploaded = (newTrack: Track) => {
+    const newItem: QueueItem = {
+      id: `qi_${Date.now()}`,
+      roomId: roomId || '',
+      track: newTrack,
+      addedBy: currentUser,
+      votes: 1,
+      hasVoted: true,
+      addedAt: new Date().toISOString(),
+    };
+    const updatedQueue = [...queue, newItem];
+    setQueue(updatedQueue);
+    broadcastQueueUpdate(updatedQueue);
+    addToast(`Added "${newTrack.title}" to room queue`, 'success');
+  };
+
   if (loading || !room) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
@@ -298,7 +339,7 @@ export const RoomPage: React.FC = () => {
 
           {/* Synced Badge, Live pill & Visualizer Aura Mode */}
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <SyncedBadge driftMs={driftMetrics.driftMs} />
+            <SyncControlHUD hostName={room.host.name} isHostUser={isHostUser} />
 
             {/* Live sync pill */}
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent-emerald/10 border border-accent-emerald/25 text-[11px] font-medium text-accent-emerald">
@@ -508,52 +549,65 @@ export const RoomPage: React.FC = () => {
 
       {/* Queue Bottom Sheet */}
       <BottomSheet isOpen={showQueue} onClose={() => setShowQueue(false)} title="Up Next">
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-          {queue.map((item) => (
-            <div
-              key={item.id}
-              className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
-                item.track.id === currentTrack?.id
-                  ? 'bg-accent-cream/5 border border-accent-cream/20'
-                  : 'bg-surface-elevated/50 border border-border/40 hover:border-border-focus'
-              }`}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs text-text-muted">{queue.length} track{queue.length !== 1 ? 's' : ''} in room queue</span>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300 hover:text-white text-xs font-semibold transition"
             >
-              <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                <img
-                  src={item.track.artwork}
-                  alt={item.track.title}
-                  className="w-full h-full object-cover"
-                />
-                {item.track.id === currentTrack?.id && status === 'playing' && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <div className="flex items-end gap-0.5 h-3">
-                      <div className="w-0.5 bg-accent-cream animate-pulse" style={{ height: '60%', animationDelay: '0ms' }} />
-                      <div className="w-0.5 bg-accent-cream animate-pulse" style={{ height: '100%', animationDelay: '150ms' }} />
-                      <div className="w-0.5 bg-accent-cream animate-pulse" style={{ height: '40%', animationDelay: '300ms' }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-sm font-semibold text-text-primary truncate">{item.track.title}</h4>
-                <p className="text-xs text-text-muted truncate">{item.track.artist}</p>
-                <p className="text-[10px] text-text-muted mt-0.5">
-                  Added by @{item.addedBy.username}
-                </p>
-              </div>
-              <button
-                onClick={() => handleVote(item.id)}
-                className={`flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg border transition-colors ${
-                  item.hasVoted
-                    ? 'bg-accent-cream/10 border-accent-cream/30 text-accent-cream'
-                    : 'bg-surface-elevated border-border text-text-muted hover:text-text-secondary hover:border-border-focus'
+              <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+              <span>+ Upload & Add Audio</span>
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+            {queue.map((item) => (
+              <div
+                key={item.id}
+                className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
+                  item.track.id === currentTrack?.id
+                    ? 'bg-accent-cream/5 border border-accent-cream/20'
+                    : 'bg-surface-elevated/50 border border-border/40 hover:border-border-focus'
                 }`}
               >
-                <ThumbsUp className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-semibold tabular-nums">{item.votes}</span>
-              </button>
-            </div>
-          ))}
+                <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                  <img
+                    src={item.track.artwork}
+                    alt={item.track.title}
+                    className="w-full h-full object-cover"
+                  />
+                  {item.track.id === currentTrack?.id && status === 'playing' && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="flex items-end gap-0.5 h-3">
+                        <div className="w-0.5 bg-accent-cream animate-pulse" style={{ height: '60%', animationDelay: '0ms' }} />
+                        <div className="w-0.5 bg-accent-cream animate-pulse" style={{ height: '100%', animationDelay: '150ms' }} />
+                        <div className="w-0.5 bg-accent-cream animate-pulse" style={{ height: '40%', animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-semibold text-text-primary truncate">{item.track.title}</h4>
+                  <p className="text-xs text-text-muted truncate">{item.track.artist}</p>
+                  <p className="text-[10px] text-text-muted mt-0.5">
+                    Added by @{item.addedBy.username}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleVote(item.id)}
+                  className={`flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg border transition-colors ${
+                    item.hasVoted
+                      ? 'bg-accent-cream/10 border-accent-cream/30 text-accent-cream'
+                      : 'bg-surface-elevated border-border text-text-muted hover:text-text-secondary hover:border-border-focus'
+                  }`}
+                >
+                  <ThumbsUp className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-semibold tabular-nums">{item.votes}</span>
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </BottomSheet>
 
@@ -566,6 +620,11 @@ export const RoomPage: React.FC = () => {
         onSettingsUpdated={(updated) => setRoom(updated)}
       />
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+      <AudioUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUploaded={handleTrackUploaded}
+      />
     </div>
   );
 };
