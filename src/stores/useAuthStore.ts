@@ -102,6 +102,94 @@ async function fetchProfileByAuthUser(
   return data ? mapProfile(data) : null;
 }
 
+/**
+ * Ensures a profile row exists in public.profiles for an authenticated user.
+ * If the user's row was deleted or failed to create via trigger, this automatically
+ * re-creates it in the database and returns the User object.
+ */
+async function ensureProfileForAuthUser(
+  client: NonNullable<typeof supabase>,
+  sessionUser: { id: string; email?: string; user_metadata?: any }
+): Promise<User> {
+  const existing = await fetchProfileByAuthUser(client, sessionUser.id);
+  if (existing) return existing;
+
+  console.info('[Auth] No profile row found for auth user. Auto-repairing profile...');
+  const meta = sessionUser.user_metadata || {};
+  const baseUsername =
+    (meta.username || sessionUser.email?.split('@')[0] || 'listener')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, 24) || `user_${sessionUser.id.replace(/-/g, '').slice(0, 8)}`;
+
+  const cleanUsername = baseUsername.length >= 2 ? baseUsername : baseUsername.padEnd(2, '0');
+  const cleanName = meta.name || sessionUser.email?.split('@')[0] || 'Listener';
+  const avatar =
+    meta.avatar_url ||
+    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80';
+  const profileId = `usr_${sessionUser.id.replace(/-/g, '').slice(0, 12)}`;
+
+  try {
+    const { data: inserted, error: insertErr } = await client
+      .from('profiles')
+      .upsert(
+        {
+          id: profileId,
+          auth_user_id: sessionUser.id,
+          username: cleanUsername,
+          name: cleanName,
+          avatar,
+          current_status: 'Listening with friends',
+          role: 'listener',
+        },
+        { onConflict: 'auth_user_id' }
+      )
+      .select('*')
+      .maybeSingle();
+
+    if (!insertErr && inserted) {
+      return mapProfile(inserted);
+    }
+
+    // If username collided with another profile, try with random suffix
+    if (insertErr && insertErr.code === '23505') {
+      const fallbackUsername = `${cleanUsername.slice(0, 18)}_${Math.random().toString(36).slice(2, 6)}`;
+      const { data: retryInserted } = await client
+        .from('profiles')
+        .upsert(
+          {
+            id: profileId,
+            auth_user_id: sessionUser.id,
+            username: fallbackUsername,
+            name: cleanName,
+            avatar,
+            current_status: 'Listening with friends',
+            role: 'listener',
+          },
+          { onConflict: 'auth_user_id' }
+        )
+        .select('*')
+        .maybeSingle();
+
+      if (retryInserted) {
+        return mapProfile(retryInserted);
+      }
+    }
+  } catch (err) {
+    console.warn('[Auth] Failed to recreate deleted profile row in Supabase:', err);
+  }
+
+  // Fallback memory user
+  return {
+    id: profileId,
+    username: cleanUsername,
+    name: cleanName,
+    avatar,
+    role: 'listener',
+  };
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   currentUser: getStoredUser(),
   session: null,
@@ -119,29 +207,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     // 1. Get initial session
     client.auth.getSession().then(async ({ data: { session }, error }) => {
       if (!error && session?.user) {
-        // The handle_new_user() trigger in 20260927000300 creates this row on
-        // auth.users insert, so it should always exist by the time we get here.
-        const user = await fetchProfileByAuthUser(client, session.user.id);
-
-        if (user) {
-          saveStoredUser(user);
-          set({ currentUser: user, session, isAuthenticated: true, isLoading: false });
-        } else {
-          // Trigger missing or profile deleted. Fall back to a minimal identity
-          // derived from the verified session rather than writing a profile
-          // ourselves - the trigger is the only writer of auth_user_id.
-          const meta = session.user.user_metadata || {};
-          const fallback: User = {
-            id: `usr_${session.user.id.slice(0, 12)}`,
-            username: meta.username || session.user.email?.split('@')[0] || 'listener',
-            name: meta.name || session.user.email?.split('@')[0] || 'Listener',
-            avatar:
-              meta.avatar_url ||
-              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
-          };
-          saveStoredUser(fallback);
-          set({ currentUser: fallback, session, isAuthenticated: true, isLoading: false });
-        }
+        const user = await ensureProfileForAuthUser(client, session.user);
+        saveStoredUser(user);
+        set({ currentUser: user, session, isAuthenticated: true, isLoading: false });
       } else {
         set({ session: null, isAuthenticated: false, isLoading: false });
       }
@@ -151,16 +219,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     const {
       data: { subscription },
     } = client.auth.onAuthStateChange((_event, session) => {
-      // NOTE: do not await Supabase queries inside this callback. The SDK
-      // serialises it against its own client and awaiting here is a documented
-      // deadlock hazard. Defer to a microtask instead.
       void (async () => {
         if (session?.user) {
-          const user = await fetchProfileByAuthUser(client, session.user.id);
-          if (user) {
-            saveStoredUser(user);
-            set({ currentUser: user, session, isAuthenticated: true, isLoading: false });
-          }
+          const user = await ensureProfileForAuthUser(client, session.user);
+          saveStoredUser(user);
+          set({ currentUser: user, session, isAuthenticated: true, isLoading: false });
         } else {
           set({ session: null, isAuthenticated: false, isLoading: false });
         }
@@ -257,7 +320,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const defaultAvatar = `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80`;
 
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: {
@@ -268,36 +331,72 @@ export const useAuthStore = create<AuthState>((set) => ({
       },
     });
 
+    // 1. Handle error response from Supabase
     if (error) {
+      const errLower = error.message.toLowerCase();
+      // If user is already registered in auth.users (common after deleting profiles row from Table Editor)
+      if (errLower.includes('already') || errLower.includes('registered')) {
+        // Automatically attempt sign in with the provided password
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (!signInErr && signInData.session && signInData.user) {
+          const user = await ensureProfileForAuthUser(supabase, signInData.user);
+          saveStoredUser(user);
+          set({ currentUser: user, session: signInData.session, isAuthenticated: true, isLoading: false, authError: null });
+          return {};
+        }
+
+        const msg =
+          'This email is already registered in Supabase. If you previously deleted the user from the Table Editor, the login still exists in Supabase Authentication -> Users. Please Sign In with your password, or delete the user from Authentication -> Users in Supabase.';
+        set({ isLoading: false, authError: msg });
+        return { error: msg };
+      }
+
       set({ isLoading: false, authError: error.message });
       return { error: error.message };
     }
 
     if (!data.user) {
-      set({ isLoading: false });
+      set({ isLoading: false, authError: 'Sign up did not return a user.' });
       return { error: 'Sign up did not return a user.' };
     }
 
-    // No profiles insert here. The handle_new_user() trigger creates the row
-    // and owns auth_user_id; writing it from the client would be an
-    // unauthenticated write to a table we now lock down.
-    const profile = await fetchProfileByAuthUser(supabase, data.user.id);
+    // 2. Check for empty identities (Supabase obfuscates existing emails when email confirmations are ON)
+    if (data.user.identities && data.user.identities.length === 0) {
+      // Attempt sign in with password
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-    if (!data.session) {
-      // Email confirmation is enabled. The account exists but is not usable
-      // until the link is clicked.
-      set({ isLoading: false });
-      return { error: 'Check your email to confirm your account, then sign in.' };
+      if (!signInErr && signInData.session && signInData.user) {
+        const user = await ensureProfileForAuthUser(supabase, signInData.user);
+        saveStoredUser(user);
+        set({ currentUser: user, session: signInData.session, isAuthenticated: true, isLoading: false, authError: null });
+        return {};
+      }
+
+      const msg =
+        'This email already exists in Supabase Authentication. If you deleted the profile row, the login credentials still remain. Please sign in with your password, or delete the user from Supabase Dashboard -> Authentication -> Users.';
+      set({ isLoading: false, authError: msg });
+      return { error: msg };
     }
 
-    const user: User = profile || {
-      id: `usr_${data.user.id.slice(0, 12)}`,
-      username: cleanUsername,
-      name: cleanName,
-      avatar: defaultAvatar,
-    };
+    // 3. Check if email confirmation is required (session is null when email confirmation is ON)
+    if (!data.session) {
+      const msg =
+        'Confirmation email sent! Please check your email inbox to verify your account, or disable "Confirm email" in Supabase Auth -> Providers -> Email for instant login.';
+      set({ isLoading: false, authError: msg });
+      return { error: msg };
+    }
+
+    // 4. Session exists: ensure profile row and log in immediately
+    const user = await ensureProfileForAuthUser(supabase, data.user);
     saveStoredUser(user);
-    set({ currentUser: user, session: data.session, isAuthenticated: true, isLoading: false });
+    set({ currentUser: user, session: data.session, isAuthenticated: true, isLoading: false, authError: null });
 
     return {};
   },
@@ -309,7 +408,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, authError: null });
 
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password,
     });
 
@@ -318,18 +417,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       return { error: error.message };
     }
 
-    if (data.user) {
-      const user = await fetchProfileByAuthUser(supabase, data.user.id);
-      if (user) {
-        saveStoredUser(user);
-        set({ currentUser: user, session: data.session, isAuthenticated: true, isLoading: false });
-      } else {
-        set({ isLoading: false });
-        return { error: 'Signed in, but no profile row exists. Try signing up again.' };
-      }
+    if (data.user && data.session) {
+      const user = await ensureProfileForAuthUser(supabase, data.user);
+      saveStoredUser(user);
+      set({ currentUser: user, session: data.session, isAuthenticated: true, isLoading: false, authError: null });
+      return {};
     }
 
-    return {};
+    set({ isLoading: false });
+    return { error: 'Could not create session. Please check your credentials.' };
   },
 
   signInWithOtp: async (email) => {

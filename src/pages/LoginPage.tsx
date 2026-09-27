@@ -69,6 +69,8 @@ export const LoginPage: React.FC = () => {
       if (!res.error) {
         addToast('Signed in successfully!', 'success');
         navigate(redirect);
+      } else {
+        addToast(res.error, 'error');
       }
     } else if (mode === 'signup') {
       if (!username.trim() || !name.trim()) {
@@ -79,11 +81,16 @@ export const LoginPage: React.FC = () => {
       if (!res.error) {
         addToast('Account created and signed in!', 'success');
         navigate(redirect);
+      } else {
+        const isInfo = res.error.includes('Confirmation') || res.error.includes('check your email');
+        addToast(res.error, isInfo ? 'info' : 'error');
       }
     } else if (mode === 'magic') {
       const res = await signInWithOtp(email);
       if (!res.error) {
         addToast('Magic link sent to your email!', 'success');
+      } else {
+        addToast(res.error, 'error');
       }
     }
   };
@@ -241,8 +248,26 @@ export const LoginPage: React.FC = () => {
               </div>
 
               {authError && (
-                <div className="p-3 rounded-xl bg-accent-crimson/10 border border-accent-crimson/30 text-xs text-accent-crimson">
-                  {authError}
+                <div
+                  className={`p-4 rounded-2xl border text-xs leading-relaxed space-y-1.5 ${
+                    authError.includes('Confirmation') || authError.includes('check your email')
+                      ? 'bg-accent-cream/10 border-accent-cream/30 text-accent-cream'
+                      : 'bg-accent-crimson/10 border-accent-crimson/30 text-accent-crimson'
+                  }`}
+                >
+                  <div className="font-bold flex items-center gap-1.5">
+                    {authError.includes('Confirmation') || authError.includes('check your email') ? (
+                      <span>✉️ Verification Link Sent</span>
+                    ) : (
+                      <span>⚠️ Authentication Notice</span>
+                    )}
+                  </div>
+                  <p>{authError}</p>
+                  {authError.includes('Authentication -> Users') && (
+                    <div className="pt-2 mt-2 border-t border-white/10 text-[11px] text-text-secondary">
+                      💡 <strong>Supabase Tip:</strong> If you deleted the row from the <code>profiles</code> table, the user identity still lives in <strong>Supabase Dashboard → Authentication → Users</strong>. You can either sign in with your existing password, or delete the user from Authentication → Users to start completely fresh.
+                    </div>
+                  )}
                 </div>
               )}
 
