@@ -14,7 +14,9 @@ export const Navbar: React.FC = () => {
     { name: 'Live Rooms', href: '/rooms', icon: Radio },
     { name: 'Create Room', href: '/create', icon: PlusCircle },
     { name: 'Join Room', href: '/join', icon: LogIn },
-    { name: 'Admin', href: '/admin', icon: Shield },
+    // Only rendered for admins. This is presentation, not authorization -
+    // RequireAdmin on the route is what actually gates the page.
+    ...(currentUser.isAdmin ? [{ name: 'Admin', href: '/admin', icon: Shield }] : []),
   ];
 
   return (

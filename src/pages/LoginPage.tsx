@@ -14,10 +14,28 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { DEMO_USERS } from '../data/mockData';
 import { useToastStore } from '../components/ui/Toast';
 
+/**
+ * Constrain the post-login destination to an in-app path.
+ *
+ * `?redirect=` came straight off the query string and went into navigate() at
+ * four call sites with no validation, so a crafted link could aim a successful
+ * sign-in at an attacker's page. Only same-origin, single-slash, non-protocol
+ * paths are accepted; anything else falls back to the Discover page.
+ */
+function safeRedirect(raw: string | null): string {
+  if (!raw) return '/';
+  if (!raw.startsWith('/')) return '/';
+  // `//evil.tld` and `/\evil.tld` are treated as protocol-relative by browsers.
+  if (raw.startsWith('//') || raw.startsWith('/\\')) return '/';
+  if (raw.includes('\\')) return '/';
+  if (/^\/[a-z][a-z0-9+.-]*:/i.test(raw)) return '/';
+  return raw;
+}
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/';
+  const redirect = safeRedirect(searchParams.get('redirect'));
   const reason = searchParams.get('reason');
 
   const {

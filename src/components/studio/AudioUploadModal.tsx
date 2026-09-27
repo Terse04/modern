@@ -12,7 +12,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Track } from '../../types';
 import { storageService } from '../../services/storageService';
-import { extractAudioMetadata, formatSeconds, ExtractedAudioMetadata } from '../../utils/audioMetadata';
+import { extractAudioMetadata, formatSeconds, AudioMetadataError, ExtractedAudioMetadata } from '../../utils/audioMetadata';
 import { useToastStore } from '../ui/Toast';
 
 interface AudioUploadModalProps {
@@ -81,11 +81,6 @@ export const AudioUploadModal: React.FC<AudioUploadModalProps> = ({
   }, []);
 
   const handleFileSelect = async (file: File) => {
-    if (!file.type.startsWith('audio/') && !/\.(mp3|wav|flac|ogg|m4a|aac|webm)$/i.test(file.name)) {
-      addToast('Please select a valid audio file (MP3, WAV, FLAC, OGG, M4A)', 'error');
-      return;
-    }
-
     // Stop previous preview
     if (audioPreviewRef.current) {
       audioPreviewRef.current.pause();
@@ -96,6 +91,10 @@ export const AudioUploadModal: React.FC<AudioUploadModalProps> = ({
     setIsAnalyzing(true);
 
     try {
+      // extractAudioMetadata enforces the 50 MB limit and the audio MIME /
+      // extension check, and throws AudioMetadataError with a message worth
+      // showing. The old inline guard here only checked the extension, so a
+      // multi-gigabyte file got a full file.arrayBuffer() read into memory.
       const extracted = await extractAudioMetadata(file);
       setMeta(extracted);
       setTitle(extracted.title);
@@ -109,7 +108,12 @@ export const AudioUploadModal: React.FC<AudioUploadModalProps> = ({
       audioPreviewRef.current.onended = () => setIsPlayingPreview(false);
     } catch (err) {
       console.error('[AudioUploadModal] Extraction error:', err);
-      addToast('Error reading audio file metadata', 'error');
+      setSelectedFile(null);
+      setMeta(null);
+      addToast(
+        err instanceof AudioMetadataError ? err.message : 'Could not read that audio file.',
+        'error'
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -167,6 +171,8 @@ export const AudioUploadModal: React.FC<AudioUploadModalProps> = ({
         genre,
         customArtworkUrl: !artworkFile ? artworkPreview : undefined,
         artworkFile: artworkFile || undefined,
+        // Already decoded during handleFileSelect - don't decode it again.
+        precomputedMeta: meta ?? undefined,
         onProgress: (p) => setUploadProgress(p),
       });
 

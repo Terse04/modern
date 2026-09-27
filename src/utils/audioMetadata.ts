@@ -19,19 +19,28 @@ export interface ExtractedAudioMetadata {
  * e.g., "01 - Tycho - Awake (2014).mp3" -> { artist: "Tycho", title: "Awake" }
  */
 export function parseAudioFilename(filename: string): { title: string; artist: string } {
-  // Strip file extension
-  const base = filename.replace(/\.[^/.]+$/, '').trim();
+  // Strip the file extension. Anchored to the last dot that actually has an
+  // extension after it, so "1.2 Master" is no longer truncated to "1".
+  const base = filename.replace(/\.[A-Za-z0-9]{1,5}$/, '').trim();
 
-  // Pattern: "Artist - Title" or "Artist - Track - Extra"
+  // Pattern: "Artist - Title" or "Artist - Title - Extra"
   if (base.includes(' - ')) {
     const parts = base.split(' - ').map((p) => p.trim());
     if (parts.length >= 2) {
       // Clean leading track numbers like "01", "1."
-      const cleanPart0 = parts[0].replace(/^[\d\s.\-_]+/, '').trim();
+      const cleanPart0 = parts[0].replace(/^[\d\s._-]+/, '').trim();
       const cleanPart1 = parts[1].replace(/\s*\([^)]*\)$/, '').replace(/\s*\[[^\]]*\]$/, '').trim();
+      // Fold any trailing segments ("Artist - Title - Remix") back into the
+      // title instead of silently discarding them.
+      const extra = parts
+        .slice(2)
+        .filter(Boolean)
+        .join(' - ');
+      const title = extra ? `${cleanPart1} - ${extra}` : cleanPart1;
+
       return {
         artist: cleanPart0 || 'Unknown Artist',
-        title: cleanPart1 || parts[1],
+        title: title || parts[1],
       };
     }
   }
@@ -52,130 +61,198 @@ export function parseAudioFilename(filename: string): { title: string; artist: s
  * Format bytes to human readable string (e.g. 4.2 MB)
  */
 export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), units.length - 1);
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${units[i]}`;
 }
 
 /**
  * Format seconds to mm:ss
  */
 export function formatSeconds(seconds: number): string {
-  if (!seconds || isNaN(seconds)) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
+  // Infinity is a real AudioBuffer.duration for streamed/unsupported media, and
+  // negatives slip through from seek maths. Both produced garbage like
+  // "Infinity:NaN" and "-1:-5" before.
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
+  const total = Math.floor(seconds);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+/** Matches the 50 MB limit the upload modal advertises and the storage bucket enforces. */
+export const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
+
+export class AudioMetadataError extends Error {
+  constructor(
+    message: string,
+    readonly code: 'too_large' | 'not_audio' | 'unreadable'
+  ) {
+    super(message);
+    this.name = 'AudioMetadataError';
+  }
+}
+
+const AUDIO_MIME_PREFIXES = ['audio/'];
+const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.oga', '.opus', '.flac', '.webm', '.mp4'];
+
 /**
- * Analyze an audio file, extracting duration, peaks, and metadata
+ * Cheap pre-flight check. `file.type` is attacker-controlled, so this only
+ * rejects obviously wrong files early - the authoritative signal is whether
+ * decodeAudioData() actually succeeds.
+ */
+function assertLooksLikeAudio(file: File): void {
+  if (file.size === 0) {
+    throw new AudioMetadataError('That file is empty.', 'not_audio');
+  }
+  if (file.size > MAX_AUDIO_BYTES) {
+    throw new AudioMetadataError(
+      `File is ${formatBytes(file.size)}. The limit is ${formatBytes(MAX_AUDIO_BYTES)}.`,
+      'too_large'
+    );
+  }
+  const type = (file.type || '').toLowerCase();
+  const dot = file.name.lastIndexOf('.');
+  const ext = dot > 0 ? file.name.slice(dot).toLowerCase() : '';
+  const typeOk = AUDIO_MIME_PREFIXES.some((p) => type.startsWith(p));
+  const extOk = AUDIO_EXTENSIONS.includes(ext);
+  if (!typeOk && !extOk) {
+    throw new AudioMetadataError(
+      `"${file.name}" does not look like an audio file.`,
+      'not_audio'
+    );
+  }
+}
+
+/**
+ * Analyze an audio file, extracting duration and waveform peaks.
+ *
+ * THROWS AudioMetadataError if the file cannot be decoded. The previous
+ * version resolved with `duration: 180` in every failure path, so a JPEG
+ * renamed to .mp3 was reported as a 3:00 track and that value was written to
+ * the tracks table by storageService. Fabricating a duration is worse than
+ * failing: the bad number became durable data.
  */
 export async function extractAudioMetadata(file: File): Promise<ExtractedAudioMetadata> {
+  assertLooksLikeAudio(file);
+
   const { title, artist } = parseAudioFilename(file.name);
-  const fileSizeBytes = file.size;
-  const formattedSize = formatBytes(fileSizeBytes);
+  const formattedSize = formatBytes(file.size);
   const mimeType = file.type || 'audio/mpeg';
 
-  let duration = 0;
-  let waveform: number[] = [];
+  // Prefer a single AudioContext for both the buffer and nothing else; the
+  // old code left it open whenever decodeAudioData threw, and Chrome caps a
+  // page at ~6 live contexts before suspending all of them.
+  let audioCtx: AudioContext | null = null;
+  let audioBuffer: AudioBuffer;
 
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioContextClass) {
-      const audioCtx = new AudioContextClass();
-      const arrayBuffer = await file.arrayBuffer();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const AudioContextClass =
+      window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
-      duration = Math.round(audioBuffer.duration);
-
-      // Extract waveform peaks (60 bars)
-      const channelData = audioBuffer.getChannelData(0);
-      const numBars = 60;
-      const blockSize = Math.floor(channelData.length / numBars);
-
-      for (let i = 0; i < numBars; i++) {
-        let blockSum = 0;
-        const start = i * blockSize;
-        const end = Math.min(start + blockSize, channelData.length);
-        for (let j = start; j < end; j += 4) {
-          // sample every 4th frame for speed
-          blockSum += Math.abs(channelData[j]);
-        }
-        const avg = blockSum / (blockSize / 4);
-        waveform.push(Math.min(1, Math.max(0.08, avg * 3.5)));
-      }
-
-      await audioCtx.close().catch(() => {});
+    if (!AudioContextClass) {
+      throw new AudioMetadataError(
+        'This browser cannot decode audio (Web Audio API unavailable).',
+        'unreadable'
+      );
     }
+
+    audioCtx = new AudioContextClass();
+    // decodeAudioData detaches the ArrayBuffer, so this is the only read.
+    const arrayBuffer = await file.arrayBuffer();
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
   } catch (err) {
-    console.warn('[AudioMetadata] AudioContext decoding failed, falling back to HTMLAudioElement:', err);
+    if (err instanceof AudioMetadataError) throw err;
+    throw new AudioMetadataError(
+      `"${file.name}" could not be decoded. It may be corrupt, or not actually audio.`,
+      'unreadable'
+    );
+  } finally {
+    void audioCtx?.close().catch(() => {});
   }
 
-  // Fallback to HTMLAudioElement if Web Audio decoding was blocked or failed
-  if (!duration) {
-    duration = await getDurationFromAudioElement(file);
+  if (!Number.isFinite(audioBuffer.duration) || audioBuffer.duration <= 0) {
+    throw new AudioMetadataError(
+      `"${file.name}" has no usable duration.`,
+      'unreadable'
+    );
   }
 
-  // Fallback synthetic waveform if none generated
-  if (waveform.length === 0) {
-    waveform = generatePlaceholderWaveform(60);
-  }
+  const duration = Math.round(audioBuffer.duration);
 
   return {
     title,
     artist,
-    duration: duration || 180,
-    waveform,
-    formattedDuration: formatSeconds(duration || 180),
-    fileSizeBytes,
+    duration,
+    waveform: computeWaveformPeaks(audioBuffer, 60),
+    formattedDuration: formatSeconds(duration),
+    fileSizeBytes: file.size,
     formattedSize,
     mimeType,
   };
 }
 
-function getDurationFromAudioElement(file: File): Promise<number> {
-  return new Promise((resolve) => {
-    const audio = new Audio();
-    const objectUrl = URL.createObjectURL(file);
-    audio.src = objectUrl;
+/**
+ * True peak amplitude per bar, normalised against the loudest bar in the file.
+ *
+ * The old implementation averaged absolute amplitude and applied a fixed x3.5
+ * gain, so quiet files rendered flat and loud files pinned to 1.0. It also
+ * divided by `blockSize / 4` while stepping by 4, which is wrong whenever
+ * blockSize is not a multiple of 4 - and when blockSize was 0 (any file
+ * shorter than 60 samples) it produced 0/0 = NaN, so the whole waveform became
+ * NaN and the UI emitted `height: NaN%`.
+ */
+function computeWaveformPeaks(buffer: AudioBuffer, numBars: number): number[] {
+  const bars = Math.max(1, numBars);
+  const channelCount = buffer.numberOfChannels;
+  const length = buffer.length;
 
-    const cleanup = () => {
-      URL.revokeObjectURL(objectUrl);
-      audio.remove();
-    };
-
-    audio.addEventListener('loadedmetadata', () => {
-      const dur = Math.round(audio.duration);
-      cleanup();
-      resolve(dur > 0 && !isNaN(dur) ? dur : 180);
-    });
-
-    audio.addEventListener('error', () => {
-      cleanup();
-      resolve(180);
-    });
-
-    // Timeout after 5 seconds
-    setTimeout(() => {
-      cleanup();
-      resolve(180);
-    }, 5000);
-  });
-}
-
-function generatePlaceholderWaveform(bars: number): number[] {
-  const peaks: number[] = [];
-  for (let i = 0; i < bars; i++) {
-    const val = 0.2 + 0.6 * Math.sin((i / bars) * Math.PI) * (0.6 + 0.4 * Math.random());
-    peaks.push(Math.round(val * 100) / 100);
+  if (length === 0 || channelCount === 0) {
+    return new Array<number>(bars).fill(0.08);
   }
-  return peaks;
+
+  // Mix all channels so a silent or phase-inverted left channel does not
+  // flatten the display.
+  const raw: number[] = new Array<number>(bars).fill(0);
+  const blockSize = length / bars;
+
+  for (let i = 0; i < bars; i++) {
+    const start = Math.floor(i * blockSize);
+    const end = Math.min(Math.floor((i + 1) * blockSize), length);
+    let peak = 0;
+
+    for (let ch = 0; ch < channelCount; ch++) {
+      const data = buffer.getChannelData(ch);
+      for (let j = start; j < end; j++) {
+        const v = data[j] < 0 ? -data[j] : data[j];
+        if (v > peak) peak = v;
+      }
+    }
+    raw[i] = peak;
+  }
+
+  const max = raw.reduce((a, b) => (b > a ? b : a), 0);
+  if (max <= 0) {
+    // Digital silence: a flat line, not NaN and not fake noise.
+    return new Array<number>(bars).fill(0.08);
+  }
+
+  return raw.map((v) => {
+    const normalised = v / max;
+    if (!Number.isFinite(normalised)) return 0.08;
+    return Math.min(1, Math.max(0.08, normalised));
+  });
 }
 
 /**
  * Generate a curated stylish cover gradient based on genre or title
+ *
+ * The keys below never matched the genres the app actually stores
+ * ('Lo-Fi / Ambient', 'Retro Synth', ...), so every lookup missed and this
+ * always fell through to the title hash. Kept for now, but it is dead weight -
+ * see the audit note.
  */
 export function getTrackCoverGradient(genre?: string, title?: string): string {
   const gradients: Record<string, string> = {

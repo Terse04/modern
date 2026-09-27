@@ -4,6 +4,21 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 const SETTINGS_STORAGE_KEY = 'modern_platform_settings';
 
+/**
+ * Escape hatch for previewing the admin dashboard with no database attached.
+ *
+ * Deliberately opt-in and demo-only. The previous behaviour granted admin to
+ * anyone whose username was 'alex', which meant (a) the Quick Profiles picker
+ * in the auth modal was a one-click admin button and (b) /admin was reachable
+ * by anyone at all, since App.tsx had no route guard.
+ *
+ * Set VITE_DEMO_ADMIN=true in .env.local to re-enable local dashboard access.
+ * It has no effect when Supabase is configured, where is_admin comes from the
+ * database.
+ */
+const DEMO_MODE_ADMIN =
+  !isSupabaseConfigured && import.meta.env.VITE_DEMO_ADMIN === 'true';
+
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   guestDailyRoomLimit: 5,
   maxListenersPerRoom: 100,
@@ -66,25 +81,28 @@ export const adminService = {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         return data.map((p: any) => ({
           id: p.id,
           username: p.username,
           name: p.name,
           avatar: p.avatar,
-          isHost: p.username === 'alex',
-          isAdmin: p.username === 'alex' || p.is_admin === true,
+          // Read straight from the server column. Previously this compared
+          // `p.username === 'alex'`, which anyone could satisfy by registering
+          // that username - that was the entire authorization model.
+          isHost: p.role === 'host' || p.is_admin === true,
+          isAdmin: p.is_admin === true,
           isBanned: p.is_banned === true,
-          role: p.is_admin ? 'admin' : (p.role || 'listener'),
+          role: p.is_admin ? 'admin' : p.role || 'listener',
         }));
       }
     }
 
     return Object.values(DEMO_USERS).map((u) => ({
       ...u,
-      isAdmin: u.username === 'alex',
+      isAdmin: DEMO_MODE_ADMIN,
       isBanned: false,
-      role: u.username === 'alex' ? 'admin' : 'listener',
+      role: DEMO_MODE_ADMIN ? 'admin' : 'listener',
     }));
   },
 

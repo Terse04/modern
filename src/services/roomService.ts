@@ -4,8 +4,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 // In-memory demo store
 let roomsStore: Room[] = [...DEMO_ROOMS];
-let membersStore: Record<string, RoomMember[]> = { ...DEMO_MEMBERS };
-let queueStore: Record<string, QueueItem[]> = { ...DEMO_QUEUE };
+const membersStore: Record<string, RoomMember[]> = { ...DEMO_MEMBERS };
+const queueStore: Record<string, QueueItem[]> = { ...DEMO_QUEUE };
 
 export const roomService = {
   async getLiveRooms(): Promise<Room[]> {

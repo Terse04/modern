@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { Track } from '../types';
-import { extractAudioMetadata } from '../utils/audioMetadata';
+import { extractAudioMetadata, ExtractedAudioMetadata } from '../utils/audioMetadata';
 
 // In-memory / session cache for uploaded custom audio URLs
 const LOCAL_TRACKS_KEY = 'together_custom_tracks';
@@ -67,19 +67,32 @@ export interface UploadTrackOptions {
   genre?: string;
   customArtworkUrl?: string;
   artworkFile?: File;
+  /**
+   * Pass metadata already computed by the caller.
+   *
+   * The upload modal calls extractAudioMetadata() to populate its form, then
+   * called storageService.uploadTrack(), which decoded the file all over
+   * again - two full file.arrayBuffer() reads, two AudioContexts, two peak
+   * loops, and a second 5s fallback timer per upload. When omitted we still
+   * extract, so this stays correct for any other caller.
+   */
+  precomputedMeta?: ExtractedAudioMetadata;
   onProgress?: (progressPercent: number) => void;
 }
 
 export const storageService = {
   /**
    * Upload audio file to Supabase Storage or IndexedDB fallback
+   *
+   * Throws AudioMetadataError if the file cannot be decoded. It no longer
+   * invents a duration.
    */
   async uploadTrack(options: UploadTrackOptions): Promise<Track> {
     const { file, artworkFile, onProgress } = options;
 
     onProgress?.(15);
-    // 1. Extract audio metadata & peaks
-    const meta = await extractAudioMetadata(file);
+    // 1. Extract audio metadata & peaks (reused if the caller already did it)
+    const meta = options.precomputedMeta ?? (await extractAudioMetadata(file));
     onProgress?.(40);
 
     const title = options.title?.trim() || meta.title;

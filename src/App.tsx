@@ -10,6 +10,7 @@ import { JoinRoomPage } from './pages/JoinRoomPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { RequireAdmin } from './components/auth/RequireAdmin';
 import { useAuthStore } from './stores/useAuthStore';
 
 const App: React.FC = () => {
@@ -33,7 +34,14 @@ const App: React.FC = () => {
           <Route path="/join" element={<JoinRoomPage />} />
           <Route path="/profile/:username" element={<ProfilePage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route
+            path="/admin"
+            element={
+              <RequireAdmin>
+                <AdminDashboardPage />
+              </RequireAdmin>
+            }
+          />
         </Routes>
       </main>
       {!isRoomView && <MobileNav />}

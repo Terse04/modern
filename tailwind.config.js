@@ -33,6 +33,15 @@ export default {
           cyan: '#06B6D4',
           cream: '#EAE5DB',
           creamHover: '#DCD6CB',
+          // These two were referenced in 14 places (error banners in the auth
+          // flows, the "guest limit reached" upsell, authenticated status dots)
+          // but were never defined here. Tailwind silently drops unknown
+          // utilities, so `text-accent-crimson` and `bg-accent-crimson/10
+          // border-accent-crimson/30` compiled to nothing: every auth error
+          // message rendered as unstyled text on the background, and the
+          // signed-in status dot had no background at all.
+          crimson: '#F2555A',
+          amber: '#F5A524',
         },
       },
       fontFamily: {
