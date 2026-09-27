@@ -333,6 +333,7 @@ export const RoomPage: React.FC = () => {
       {/* Room Header */}
       <RoomHeader
         room={room}
+        listenerCount={Math.max(1, members.length)}
         onOpenInvite={() => setShowInvite(true)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenAuth={() => setShowAuth(true)}

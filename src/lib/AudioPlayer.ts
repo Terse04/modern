@@ -221,6 +221,13 @@ export class AudioEngine {
     this.audio.volume = safeVol;
   }
 
+  setPlaybackRate(rate: number) {
+    if (this.audio) {
+      this.audio.playbackRate = rate;
+      this.isNudging = rate !== 1.0;
+    }
+  }
+
   getCurrentTime(): number {
     return this.audio.currentTime || 0;
   }

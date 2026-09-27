@@ -8,6 +8,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 
 export interface RoomHeaderProps {
   room: Room;
+  listenerCount?: number;
   onOpenInvite: () => void;
   onOpenSettings: () => void;
   onOpenAuth?: () => void;
@@ -15,11 +16,14 @@ export interface RoomHeaderProps {
 
 export const RoomHeader: React.FC<RoomHeaderProps> = ({
   room,
+  listenerCount,
   onOpenInvite,
   onOpenSettings,
   onOpenAuth,
 }) => {
   const { currentUser, isAuthenticated } = useAuthStore();
+  const count = listenerCount !== undefined ? listenerCount : (room.listenerCount || 1);
+
   return (
     <header className="w-full flex items-center justify-between py-4 px-4 sm:px-8 border-b border-border/40 bg-bg/50 backdrop-blur-md">
       {/* Left: Back button & Room Title & Listener Count */}
@@ -43,7 +47,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           <div className="flex items-center gap-2 mt-0.5 text-xs text-text-secondary">
             <span className="flex items-center gap-1">
               <Users className="w-3.5 h-3.5 text-text-muted" />
-              <span>{room.listenerCount} listeners</span>
+              <span>{count} {count === 1 ? 'listener' : 'listeners'}</span>
             </span>
           </div>
         </div>

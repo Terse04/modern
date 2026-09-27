@@ -44,11 +44,16 @@ export const SyncControlHUD: React.FC<SyncControlHUDProps> = ({
 
   return (
     <div className={`relative flex items-center gap-2 ${className}`}>
-      {/* Sync Status Badge */}
-      <div
+      {/* Sync Status Badge (Clickable for quick resync) */}
+      <button
+        type="button"
+        onClick={!isHostUser ? handleManualResync : undefined}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition-all shadow-sm ${getStatusColor()}`}
+        title={!isHostUser ? 'Tap to instantly sync audio with host' : 'You are broadcasting as host'}
+        className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-medium transition-all shadow-sm ${
+          !isHostUser ? 'cursor-pointer hover:brightness-110 active:scale-95' : 'cursor-default'
+        } ${getStatusColor()}`}
       >
         {isHostUser ? (
           <Crown className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
@@ -75,7 +80,7 @@ export const SyncControlHUD: React.FC<SyncControlHUDProps> = ({
           </div>
         )}
         <span>{getStatusLabel()}</span>
-      </div>
+      </button>
 
       {/* Listener Actions: Resync & Solo Mode Toggle */}
       {!isHostUser && (
@@ -85,10 +90,10 @@ export const SyncControlHUD: React.FC<SyncControlHUDProps> = ({
             onClick={handleManualResync}
             disabled={isResyncing || isSoloMode}
             title="Snap immediately to host's playback time"
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-surface-elevated/60 hover:bg-surface-elevated border border-border/60 hover:border-violet-500/50 text-[11px] text-zinc-300 hover:text-white transition disabled:opacity-30 disabled:pointer-events-none"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent-cream text-bg font-semibold text-[11px] hover:bg-accent-creamHover shadow-sm transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
           >
-            <Zap className={`w-3 h-3 text-amber-400 ${isResyncing ? 'animate-bounce' : ''}`} />
-            <span className="hidden sm:inline">Sync Now</span>
+            <Zap className={`w-3 h-3 text-bg fill-current ${isResyncing ? 'animate-spin' : ''}`} />
+            <span>Sync</span>
           </button>
 
           <button

@@ -278,37 +278,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       }
     },
 
-    /**
-     * One-click hard resynchronize to the host's exact playback position
-     */
-    resyncNow: () => {
-      const { lastHeartbeat } = get();
-      if (!lastHeartbeat) return;
 
-      const expected = realtimeService.calculateExpectedPosition(
-        lastHeartbeat.position,
-        lastHeartbeat.serverTimestamp,
-        lastHeartbeat.status
-      );
-
-      globalAudioEngine.seek(expected);
-      if (lastHeartbeat.status === 'playing') {
-        globalAudioEngine.play();
-      } else {
-        globalAudioEngine.pause();
-      }
-
-      set({
-        position: expected,
-        status: lastHeartbeat.status,
-        driftMetrics: {
-          driftMs: 0,
-          status: 'synced',
-          latencyMs: 10,
-          lastCalculated: Date.now(),
-        },
-      });
-    },
 
     broadcastHeartbeat: () => {
       const { currentRoomId, currentTrack, status, isHost } = get();
@@ -328,6 +298,60 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
         },
         getCurrentUserId()
       );
+    },
+
+    resyncNow: () => {
+      const state = get();
+      if (state.lastHeartbeat) {
+        const { trackId, position, status, serverTimestamp } = state.lastHeartbeat;
+
+        if (state.currentTrack?.id !== trackId) {
+          trackService.getTrackById(trackId).then((foundTrack) => {
+            if (foundTrack) {
+              state.setTrack(foundTrack, status === 'playing', false);
+            }
+          });
+        }
+
+        const expected = realtimeService.calculateExpectedPosition(
+          position,
+          serverTimestamp,
+          status
+        );
+
+        globalAudioEngine.seek(expected);
+        globalAudioEngine.setPlaybackRate(1.0);
+
+        if (status === 'playing') {
+          globalAudioEngine.play().catch(() => {});
+        } else {
+          globalAudioEngine.pause();
+        }
+
+        set({
+          position: expected,
+          status,
+          driftMetrics: {
+            driftMs: 0,
+            status: 'synced',
+            latencyMs: 12,
+            lastCalculated: Date.now(),
+          },
+        });
+      } else {
+        globalAudioEngine.setPlaybackRate(1.0);
+        if (state.status === 'playing') {
+          globalAudioEngine.play().catch(() => {});
+        }
+        set({
+          driftMetrics: {
+            driftMs: 0,
+            status: 'synced',
+            latencyMs: 12,
+            lastCalculated: Date.now(),
+          },
+        });
+      }
     },
 
     nextTrack: (queue: QueueItem[]) => {

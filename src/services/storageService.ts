@@ -104,14 +104,14 @@ export const storageService = {
     let audioUrl = '';
     let artworkUrl = options.customArtworkUrl || '';
 
-    // 2. Try Supabase Storage upload
+    // 2. Try Supabase Storage upload (Direct or via signed URL)
     if (isSupabaseConfigured && supabase) {
       try {
         const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const storagePath = `uploads/${Date.now()}_${cleanName}`;
 
         onProgress?.(60);
-        // Upload audio file
+        // Try direct upload first
         const { error: uploadErr } = await supabase.storage
           .from('tracks')
           .upload(storagePath, file, {
@@ -122,6 +122,25 @@ export const storageService = {
         if (!uploadErr) {
           const { data: urlData } = supabase.storage.from('tracks').getPublicUrl(storagePath);
           audioUrl = urlData.publicUrl;
+        } else {
+          // If direct upload failed due to RLS, request a signed upload URL from serverless API
+          try {
+            const apiRes = await fetch(`/api/upload-url?path=${encodeURIComponent(storagePath)}`);
+            if (apiRes.ok) {
+              const signData = await apiRes.json();
+              if (signData?.token) {
+                const { error: signUpErr } = await supabase.storage
+                  .from('tracks')
+                  .uploadToSignedUrl(storagePath, signData.token, file);
+                if (!signUpErr) {
+                  const { data: pubData } = supabase.storage.from('tracks').getPublicUrl(storagePath);
+                  audioUrl = pubData.publicUrl;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('[StorageService] Signed upload request failed:', e);
+          }
         }
 
         // Upload custom artwork if provided
@@ -138,15 +157,29 @@ export const storageService = {
           }
         }
       } catch (e) {
-        console.warn('[StorageService] Supabase upload failed, falling back to local object URL:', e);
+        console.warn('[StorageService] Supabase upload failed:', e);
       }
     }
 
     onProgress?.(80);
 
-    // 3. Fallback to Local Object URL + IndexedDB if no Supabase URL was generated
+    // 3. Portable Data URL or local object URL fallback if remote storage upload could not complete
     if (!audioUrl) {
-      audioUrl = URL.createObjectURL(file);
+      try {
+        // For files < 8MB, generate a portable base64 Data URL so all listeners across the room can decode it
+        if (file.size < 8 * 1024 * 1024) {
+          audioUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        } else {
+          audioUrl = URL.createObjectURL(file);
+        }
+      } catch {
+        audioUrl = URL.createObjectURL(file);
+      }
       await storeBlobLocally(trackId, file);
     }
 

@@ -175,13 +175,13 @@ export const roomService = {
       }
     }
 
-    // Add to demo store
+    // Add to demo store with actual room host
     roomsStore = [newRoom, ...roomsStore];
     membersStore[newRoom.id] = [
       {
-        id: `mem_${Date.now()}`,
+        id: `mem_${newRoom.host.id}`,
         roomId: newRoom.id,
-        user: DEMO_USERS.alex,
+        user: newRoom.host,
         role: 'host',
         status: 'host',
         statusText: 'Host',
@@ -195,19 +195,10 @@ export const roomService = {
         id: `q_${Date.now()}`,
         roomId: newRoom.id,
         track: DEMO_TRACKS[0],
-        addedBy: DEMO_USERS.alex,
+        addedBy: newRoom.host,
         addedAt: new Date().toISOString(),
         votes: 1,
         hasVoted: true,
-      },
-      {
-        id: `q_${Date.now() + 1}`,
-        roomId: newRoom.id,
-        track: DEMO_TRACKS[1],
-        addedBy: DEMO_USERS.alex,
-        addedAt: new Date().toISOString(),
-        votes: 0,
-        hasVoted: false,
       },
     ];
 
@@ -268,19 +259,28 @@ export const roomService = {
       }
     }
 
-    return membersStore[roomId] || [
-      {
-        id: `mem_host`,
-        roomId,
-        user: DEMO_USERS.alex,
-        role: 'host',
-        status: 'host',
-        statusText: 'Host',
-        joinedAt: new Date().toISOString(),
-        isSynced: true,
-        driftMs: 0,
-      },
-    ];
+    if (membersStore[roomId]) {
+      return membersStore[roomId];
+    }
+
+    const r = roomsStore.find((room) => room.id.toLowerCase() === roomId.toLowerCase());
+    if (r?.host) {
+      return [
+        {
+          id: `mem_${r.host.id}`,
+          roomId,
+          user: r.host,
+          role: 'host',
+          status: 'host',
+          statusText: 'Host',
+          joinedAt: r.createdAt || new Date().toISOString(),
+          isSynced: true,
+          driftMs: 0,
+        },
+      ];
+    }
+
+    return [];
   },
 
   async joinRoom(roomId: string, user: User): Promise<RoomMember> {

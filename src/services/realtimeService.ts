@@ -97,7 +97,6 @@ class RealtimeService {
       const channel = supabase.channel(`room:${roomId}`, {
         config: {
           broadcast: { self: false },
-          presence: { key: roomId },
         },
       });
 
@@ -130,7 +129,7 @@ class RealtimeService {
           });
 
           if (membersList.length > 0) {
-            const map = this.localPresenceMap.get(roomId) || new Map();
+            const map = new Map<string, RoomMember>();
             membersList.forEach((m) => map.set(m.user.id, m));
             this.localPresenceMap.set(roomId, map);
             this.notifyPresenceListeners(roomId, Array.from(map.values()));
