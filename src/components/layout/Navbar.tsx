@@ -19,6 +19,33 @@ export const Navbar: React.FC = () => {
     ...(currentUser.isAdmin ? [{ name: 'Admin', href: '/admin', icon: Shield }] : []),
   ];
 
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [hasUnread, setHasUnread] = useState(true);
+
+  const notifications = [
+    {
+      id: 'n1',
+      title: 'Late Night Coding',
+      text: 'Alex is broadcasting ambient synth in sync',
+      time: '2m ago',
+      href: '/room/late-night-coding',
+    },
+    {
+      id: 'n2',
+      title: 'Sound Identity',
+      text: 'Your account is connected to Supabase Realtime',
+      time: '15m ago',
+      href: '/profile',
+    },
+    {
+      id: 'n3',
+      title: 'Listening Circle',
+      text: 'Elena and Marcus joined a room',
+      time: '45m ago',
+      href: '/rooms',
+    },
+  ];
+
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-bg/80 backdrop-blur-md border-b border-border/40">
@@ -56,7 +83,7 @@ export const Navbar: React.FC = () => {
           </nav>
 
           {/* Right Actions: Notifications & Profile Switcher */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 relative">
             {!isAuthenticated && (
               <Link
                 to="/login"
@@ -66,12 +93,59 @@ export const Navbar: React.FC = () => {
               </Link>
             )}
 
-            <button
-              className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-elevated rounded-full transition-colors hidden sm:flex"
-              title="Activity Notifications"
-            >
-              <Bell className="w-4 h-4" />
-            </button>
+            {/* Interactive Notifications Button */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  setHasUnread(false);
+                }}
+                className={`p-2 rounded-full transition-colors hidden sm:flex relative ${
+                  showNotifications
+                    ? 'text-accent-cream bg-surface-elevated border border-border'
+                    : 'text-text-muted hover:text-text-primary hover:bg-surface-elevated'
+                }`}
+                title="Activity Notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {hasUnread && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent-amber animate-pulse" />
+                )}
+              </button>
+
+              {/* Notifications Dropdown Popover */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-surface/95 backdrop-blur-xl border border-border/80 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95">
+                  <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/40 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                      Recent Activity
+                    </span>
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="text-[11px] text-text-muted hover:text-text-primary"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {notifications.map((n) => (
+                      <Link
+                        key={n.id}
+                        to={n.href}
+                        onClick={() => setShowNotifications(false)}
+                        className="block p-2.5 rounded-xl hover:bg-surface-elevated border border-transparent hover:border-border/40 transition-all text-left"
+                      >
+                        <div className="flex items-center justify-between text-xs font-semibold text-text-primary mb-0.5">
+                          <span>{n.title}</span>
+                          <span className="text-[10px] text-text-muted font-normal">{n.time}</span>
+                        </div>
+                        <p className="text-xs text-text-secondary line-clamp-1">{n.text}</p>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Interactive User Profile & Auth Trigger */}
             <button

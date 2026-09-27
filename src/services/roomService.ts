@@ -177,6 +177,38 @@ export const roomService = {
     return newRoom;
   },
 
+  async updateRoom(
+    roomId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      artwork?: string;
+      settings?: any;
+    }
+  ): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const payload: Record<string, any> = {};
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.artwork !== undefined) payload.artwork = updates.artwork;
+      if (updates.settings !== undefined) payload.settings = updates.settings;
+
+      await supabase.from('rooms').update(payload).eq('id', roomId);
+    }
+
+    roomsStore = roomsStore.map((r) =>
+      r.id === roomId
+        ? {
+            ...r,
+            ...(updates.name ? { name: updates.name } : {}),
+            ...(updates.description !== undefined ? { description: updates.description } : {}),
+            ...(updates.artwork ? { artwork: updates.artwork } : {}),
+            ...(updates.settings ? { settings: updates.settings } : {}),
+          }
+        : r
+    );
+  },
+
   async getRoomMembers(roomId: string): Promise<RoomMember[]> {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase

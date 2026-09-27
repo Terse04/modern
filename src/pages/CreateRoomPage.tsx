@@ -1,6 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Radio, Upload, Globe, Lock, Eye, ChevronDown, Flame, ShieldCheck, ArrowRight } from 'lucide-react';
+import {
+  Radio,
+  Upload,
+  Globe,
+  Lock,
+  Eye,
+  ChevronDown,
+  Flame,
+  ShieldCheck,
+  ArrowRight,
+  X,
+  Check,
+} from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useToastStore } from '../components/ui/Toast';
 import { roomService } from '../services/roomService';
@@ -8,6 +20,39 @@ import { roomLimitService } from '../services/roomLimitService';
 import { adminService } from '../services/adminService';
 import { useAuthStore } from '../stores/useAuthStore';
 import { VisibilityType, PlaybackPermission } from '../types';
+
+const ROOM_ARTWORK_PRESETS = [
+  {
+    id: 'vinyl_turntable',
+    label: 'Turntable',
+    url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 'synth_neon',
+    label: 'Neon Synth',
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 'lofi_cafe',
+    label: 'Late Night',
+    url: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 'studio_beats',
+    label: 'Studio Waves',
+    url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 'sunset_ambient',
+    label: 'Sunset Chill',
+    url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 'cyber_focus',
+    label: 'Cyber Space',
+    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80',
+  },
+];
 
 export const CreateRoomPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,12 +67,57 @@ export const CreateRoomPage: React.FC = () => {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [artwork, setArtwork] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [visibility, setVisibility] = useState<VisibilityType>('public');
   const [playback, setPlayback] = useState<PlaybackPermission>('everyone');
   const [allowChat, setAllowChat] = useState(true);
   const [allowQueue, setAllowQueue] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const processImageFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      addToast('Please upload an image file (PNG, JPG, WEBP)', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('Image size should be less than 5MB', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (typeof e.target?.result === 'string') {
+        setArtwork(e.target.result);
+        addToast('Room artwork uploaded!', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processImageFile(file);
+  };
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -51,6 +141,7 @@ export const CreateRoomPage: React.FC = () => {
         allowChat,
         allowQueueAdditions: allowQueue,
         host: currentUser,
+        artwork: artwork || undefined,
       });
 
       // Track guest usage
@@ -160,16 +251,117 @@ export const CreateRoomPage: React.FC = () => {
 
         {/* Artwork Upload Zone */}
         <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">
-            Artwork Upload
-          </label>
-          <div className="border-2 border-dashed border-border rounded-2xl p-8 flex flex-col items-center justify-center gap-3 hover:border-border-focus transition-colors cursor-pointer group">
-            <div className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center group-hover:bg-surface-hover transition-colors">
-              <Upload className="w-5 h-5 text-text-muted" />
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-medium text-text-secondary uppercase tracking-wider">
+              Room Artwork / Cover
+            </label>
+            {artwork && (
+              <button
+                type="button"
+                onClick={() => setArtwork('')}
+                className="text-[11px] text-accent-crimson hover:underline flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Remove
+              </button>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          {artwork ? (
+            /* Selected Artwork Preview */
+            <div className="relative rounded-2xl overflow-hidden border border-border group bg-surface-elevated">
+              <div className="aspect-[21/9] w-full relative overflow-hidden">
+                <img
+                  src={artwork}
+                  alt="Room cover preview"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-4 justify-between">
+                  <div className="flex items-center gap-2 text-white text-xs font-medium">
+                    <Check className="w-4 h-4 text-accent-emerald" />
+                    <span>Custom Artwork Selected</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-lg bg-surface/90 hover:bg-surface text-text-primary text-xs font-medium border border-border backdrop-blur-sm transition-all"
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-text-primary">Drag and drop zone</p>
-              <p className="text-xs text-text-muted mt-0.5">or click to browse</p>
+          ) : (
+            /* Interactive Drag & Drop Box */
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-2xl p-7 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group ${
+                isDragging
+                  ? 'border-accent-cream bg-accent-cream/10 scale-[1.01]'
+                  : 'border-border hover:border-accent-cream/50 bg-surface-elevated/40 hover:bg-surface-elevated/70'
+              }`}
+            >
+              <div className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Upload className="w-5 h-5 text-accent-cream" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-text-primary">
+                  {isDragging ? 'Drop your image here' : 'Drag and drop cover image'}
+                </p>
+                <p className="text-xs text-text-muted mt-0.5">
+                  or <span className="text-accent-cream font-medium underline">browse from your computer</span> (PNG, JPG, WEBP &lt; 5MB)
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Preset Artwork Suggestions */}
+          <div className="mt-3">
+            <span className="text-[11px] text-text-muted block mb-2 font-medium">
+              Or pick an aesthetic vibe preset:
+            </span>
+            <div className="grid grid-cols-6 gap-2">
+              {ROOM_ARTWORK_PRESETS.map((preset) => {
+                const isSelected = artwork === preset.url;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      setArtwork(preset.url);
+                      addToast(`Selected "${preset.label}" cover`, 'info');
+                    }}
+                    title={preset.label}
+                    className={`relative rounded-xl overflow-hidden aspect-video border transition-all group ${
+                      isSelected
+                        ? 'border-accent-cream ring-2 ring-accent-cream/40 scale-105 shadow-md'
+                        : 'border-border/60 hover:border-accent-cream/50 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={preset.url}
+                      alt={preset.label}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                    />
+                    {isSelected && (
+                      <div className="absolute inset-0 bg-accent-cream/20 flex items-center justify-center">
+                        <Check className="w-3.5 h-3.5 text-accent-cream drop-shadow" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

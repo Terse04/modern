@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, Users, Radio, MessageSquare, PlayCircle } from 'lucide-react';
 import { Room } from '../../types';
+import { roomService } from '../../services/roomService';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { useToastStore } from '../ui/Toast';
@@ -25,8 +26,7 @@ export const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      // In a real app, update via roomService
-      // await roomService.updateRoom(room.id, { settings });
+      await roomService.updateRoom(room.id, { settings });
       addToast('Room settings updated successfully');
       if (onSettingsUpdated) {
         onSettingsUpdated({ ...room, settings });

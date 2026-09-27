@@ -167,23 +167,24 @@ export const DiscoverPage: React.FC = () => {
             Your Friends Are Listening
           </h2>
           <Link
-            to="/profile/alex"
-            className="flex items-center gap-1 text-xs font-medium text-text-muted hover:text-text-secondary transition-colors"
+            to="/profile"
+            className="flex items-center gap-1 text-xs font-medium text-text-muted hover:text-accent-cream transition-colors"
           >
-            See all <ChevronRight className="w-3.5 h-3.5" />
+            Your Profile <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {friends.map((friend) => (
-            <div
+            <Link
               key={friend.id}
-              className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-surface-elevated/50 border border-border/40 hover:border-border-focus transition-all group"
+              to={`/profile/${friend.username}`}
+              className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-surface-elevated/50 border border-border/40 hover:border-accent-cream/50 hover:bg-surface-elevated transition-all group"
             >
               <div className="relative flex-shrink-0">
                 <img
                   src={friend.avatar}
                   alt={friend.name}
-                  className="w-11 h-11 rounded-full object-cover ring-2 ring-white/10"
+                  className="w-11 h-11 rounded-full object-cover ring-2 ring-white/10 group-hover:scale-105 transition-transform"
                 />
                 <span
                   className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-surface-elevated ${
@@ -197,7 +198,9 @@ export const DiscoverPage: React.FC = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-text-primary truncate">{friend.name}</span>
+                  <span className="text-sm font-semibold text-text-primary group-hover:text-accent-cream transition-colors truncate">
+                    {friend.name}
+                  </span>
                   <span
                     className={`text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border ${
                       friend.status === 'reacting'
@@ -212,7 +215,7 @@ export const DiscoverPage: React.FC = () => {
                 </div>
                 <p className="text-xs text-text-muted mt-0.5 truncate">{friend.statusText}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
