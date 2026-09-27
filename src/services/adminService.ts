@@ -186,6 +186,17 @@ export const adminService = {
   },
 
   async deleteRoom(roomId: string): Promise<boolean> {
+    // Primary: use admin API (bypasses RLS)
+    try {
+      const res = await fetch(`/api/admin?action=delete-room&id=${encodeURIComponent(roomId)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) return true;
+    } catch {
+      // fall through
+    }
+
+    // Fallback: direct Supabase delete
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.from('rooms').delete().eq('id', roomId);
       return !error;
@@ -195,9 +206,32 @@ export const adminService = {
 
   // ─── Tracks Management ──────────────────────────────────────────────────
   async getAllTracks(): Promise<Track[]> {
+    // Primary: fetch via admin API (uses secret key, bypasses RLS)
+    try {
+      const res = await fetch('/api/admin?action=get-tracks');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.tracks && Array.isArray(json.tracks)) {
+          return json.tracks.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            artist: t.artist,
+            album: t.album,
+            artwork: t.artwork,
+            duration: t.duration,
+            audioUrl: t.audio_url,
+            genre: t.genre,
+          }));
+        }
+      }
+    } catch {
+      // Admin API unavailable, fall through to direct Supabase query
+    }
+
+    // Fallback: direct Supabase client query (may be limited by RLS)
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         return data.map((t: any) => ({
           id: t.id,
           title: t.title,
@@ -210,13 +244,28 @@ export const adminService = {
         }));
       }
     }
-    return [...CURATED_OPEN_TRACKS];
+
+    // If DB is truly empty, return empty — no phantom in-memory tracks
+    return [];
   },
 
   async addTrack(track: Omit<Track, 'id'>): Promise<Track> {
     const id = `trk_${Date.now()}`;
     const newTrack: Track = { id, ...track };
 
+    // Primary: use admin API (bypasses RLS)
+    try {
+      const res = await fetch('/api/admin?action=add-track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTrack),
+      });
+      if (res.ok) return newTrack;
+    } catch {
+      // fall through
+    }
+
+    // Fallback: direct Supabase insert
     if (isSupabaseConfigured && supabase) {
       await supabase.from('tracks').insert({
         id: newTrack.id,
@@ -234,11 +283,40 @@ export const adminService = {
   },
 
   async deleteTrack(trackId: string): Promise<boolean> {
+    // Primary: use admin API (bypasses RLS, handles FK cleanup)
+    try {
+      const res = await fetch(`/api/admin?action=delete-track&id=${encodeURIComponent(trackId)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) return true;
+    } catch {
+      // fall through
+    }
+
+    // Fallback: direct Supabase delete
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.from('tracks').delete().eq('id', trackId);
       return !error;
     }
     return true;
+  },
+
+  /**
+   * Seed curated open-source tracks into the database so they are real
+   * persistent rows. Only needs to be called once; subsequent calls are
+   * idempotent (upsert on id).
+   */
+  async seedCuratedTracks(): Promise<boolean> {
+    try {
+      const res = await fetch('/api/admin?action=seed-tracks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracks: CURATED_OPEN_TRACKS }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   },
 
   // ─── Platform Analytics ─────────────────────────────────────────────────

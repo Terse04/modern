@@ -81,7 +81,23 @@ export const AdminDashboardPage: React.FC = () => {
       setStats(allStats);
       setUsers(allUsers);
       setRooms(allRooms);
-      setTracks(allTracks);
+
+      // Auto-seed curated tracks into the DB on first load if the table is empty.
+      // This makes them real database rows that survive page refresh and can
+      // be permanently deleted by the admin.
+      if (allTracks.length === 0) {
+        const seeded = await adminService.seedCuratedTracks();
+        if (seeded) {
+          const freshTracks = await adminService.getAllTracks();
+          setTracks(freshTracks);
+          addToast('Seeded curated music library into database', 'info');
+        } else {
+          setTracks([]);
+        }
+      } else {
+        setTracks(allTracks);
+      }
+
       setSettings(adminService.getPlatformSettings());
     } catch (err) {
       console.error('Failed to load admin data:', err);
