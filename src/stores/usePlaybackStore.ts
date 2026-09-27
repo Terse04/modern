@@ -28,9 +28,13 @@ interface PlaybackStore {
     serverTimestamp: number;
   };
 
+  skipVotes: string[];
+
   // Actions
   setIsHost: (isHost: boolean) => void;
   toggleSoloMode: () => void;
+  voteSkip: (userId: string, totalMembers: number, queue: QueueItem[]) => void;
+  resetSkipVotes: () => void;
   initRoom: (roomId: string, initialTrack?: Track, isHostUser?: boolean) => () => void;
   setTrack: (track: Track, autoPlay?: boolean, broadcast?: boolean) => void;
   play: (broadcast?: boolean) => Promise<void>;
@@ -92,6 +96,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     isRepeating: false,
     isHost: false,
     isSoloMode: false,
+    skipVotes: [],
     revision: 1,
     serverTimestamp: Date.now(),
     driftMetrics: {
@@ -110,6 +115,33 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
         // Leaving solo mode -> snap back to host sync immediately
         get().resyncNow();
       }
+    },
+
+    voteSkip: (userId: string, totalMembers: number, queue: QueueItem[]) => {
+      const { skipVotes, currentRoomId } = get();
+      if (skipVotes.includes(userId)) return;
+
+      const nextVotes = [...skipVotes, userId];
+      set({ skipVotes: nextVotes });
+
+      const threshold = Math.max(1, Math.ceil(totalMembers / 2));
+      if (currentRoomId) {
+        realtimeService.broadcastEvent(
+          currentRoomId,
+          'SKIP_VOTE',
+          { skipVotes: nextVotes, threshold },
+          getCurrentUserId()
+        );
+      }
+
+      if (nextVotes.length >= threshold) {
+        get().nextTrack(queue);
+        set({ skipVotes: [] });
+      }
+    },
+
+    resetSkipVotes: () => {
+      set({ skipVotes: [] });
     },
 
     initRoom: (roomId: string, initialTrack?: Track, isHostUser: boolean = false) => {
@@ -139,6 +171,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
         currentTrack: track,
         position: 0,
         duration: track.duration,
+        skipVotes: [],
         serverTimestamp: Date.now(),
         revision: get().revision + 1,
       });
@@ -479,9 +512,16 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
             currentTrack: track,
             position: position || 0,
             duration: track.duration,
+            skipVotes: [],
             revision: event.revision,
           });
           globalAudioEngine.loadTrack(track.audioUrl, true);
+          break;
+        }
+
+        case 'SKIP_VOTE': {
+          const { skipVotes: remoteVotes } = event.payload;
+          set({ skipVotes: remoteVotes || [] });
           break;
         }
       }

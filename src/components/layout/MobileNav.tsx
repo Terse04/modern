@@ -14,7 +14,7 @@ export const MobileNav: React.FC = () => {
     { name: 'Rooms', href: '/rooms', icon: Radio },
     { name: 'Create', href: '/create', icon: PlusCircle },
     { name: 'Join', href: '/join', icon: LogIn },
-    { name: 'Identity', href: '/profile/alex', icon: User },
+    { name: 'Identity', href: '/profile', icon: User },
   ];
 
   return (

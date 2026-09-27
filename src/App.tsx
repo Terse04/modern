@@ -32,6 +32,7 @@ const App: React.FC = () => {
           <Route path="/room/:roomId" element={<RoomPage />} />
           <Route path="/create" element={<CreateRoomPage />} />
           <Route path="/join" element={<JoinRoomPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:username" element={<ProfilePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route

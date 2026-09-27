@@ -39,6 +39,7 @@ interface AuthState {
   signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
   signInWithOtp: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  updateCurrentUser: (updates: Partial<User>) => void;
   clearError: () => void;
 }
 
@@ -174,6 +175,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   switchProfile: (user: User) => {
     saveStoredUser(user);
     set({ currentUser: user, authError: null });
+  },
+
+  updateCurrentUser: (updates: Partial<User>) => {
+    set((state) => {
+      const updated: User = { ...state.currentUser, ...updates };
+      saveStoredUser(updated);
+      return { currentUser: updated };
+    });
   },
 
   createGuestProfile: (name: string, username: string) => {

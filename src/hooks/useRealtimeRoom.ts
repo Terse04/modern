@@ -10,11 +10,12 @@ export interface RealtimeRoomHandlers {
   onQueueUpdate: (queue: QueueItem[]) => void;
   onMemberUpdate: (member: RoomMember) => void;
   onMemberLeft: (userId: string) => void;
+  onPresenceSync?: (members: RoomMember[]) => void;
 }
 
 /**
- * Subscribes to all realtime events for a room and dispatches them to the
- * appropriate handlers. Returns helpers to broadcast chat messages and reactions.
+ * Subscribes to all realtime events & Supabase Presence for a room and dispatches them
+ * to the appropriate handlers. Returns helpers to broadcast chat messages, reactions, and queue updates.
  */
 export function useRealtimeRoom(
   roomId: string | undefined,
@@ -33,6 +34,7 @@ export function useRealtimeRoom(
     userRef.current = currentUser;
   }, [currentUser]);
 
+  // 1. Room message & broadcast subscriptions
   useEffect(() => {
     if (!roomId) return;
 
@@ -72,14 +74,33 @@ export function useRealtimeRoom(
           break;
         }
 
-        // Playback events (PLAY, PAUSE, SEEK, TRACK_CHANGE) are handled
-        // by usePlaybackStore which has its own subscription via initRoom().
         default:
           break;
       }
     });
 
     return unsubscribe;
+  }, [roomId]);
+
+  // 2. Live Supabase Presence subscription
+  useEffect(() => {
+    if (!roomId) return;
+
+    const unsubscribePresence = realtimeService.subscribeToPresence(roomId, (members) => {
+      handlersRef.current.onPresenceSync?.(members);
+    });
+
+    // Handle tab closing or unmounting
+    const handleLeave = () => {
+      realtimeService.untrackPresence(roomId, userRef.current.id);
+    };
+    window.addEventListener('beforeunload', handleLeave);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleLeave);
+      unsubscribePresence();
+      handleLeave();
+    };
   }, [roomId]);
 
   // ─── Broadcast helpers ────────────────────────────────────────────────────
@@ -122,12 +143,13 @@ export function useRealtimeRoom(
   );
 
   /**
-   * Called when the current user joins. Broadcasts presence and triggers
-   * a join via roomService (which may update member lists).
+   * Called when the current user joins. Tracks presence in Supabase Realtime
+   * and dispatches join event.
    */
   const joinAsCurrentUser = useCallback(async () => {
     if (!roomId) return;
     const member = await roomService.joinRoom(roomId, userRef.current);
+    await realtimeService.trackPresence(roomId, member);
     await broadcastPresence('join', member);
     return member;
   }, [roomId, broadcastPresence]);

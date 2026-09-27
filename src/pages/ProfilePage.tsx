@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Radio,
@@ -9,35 +9,127 @@ import {
   Sliders,
   ExternalLink,
   Sparkles,
+  Edit3,
+  Camera,
 } from 'lucide-react';
+import { Profile } from '../types';
 import { DEMO_PROFILE, DEMO_USERS } from '../data/mockData';
 import { Button } from '../components/ui/Button';
 import { useToastStore } from '../components/ui/Toast';
+import { useAuthStore } from '../stores/useAuthStore';
+import { profileService } from '../services/profileService';
+import { EditProfileModal } from '../components/profile/EditProfileModal';
 
 export const ProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const addToast = useToastStore((s) => s.addToast);
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const updateCurrentUser = useAuthStore((s) => s.updateCurrentUser);
 
   const [activeTab, setActiveTab] = useState<'rooms' | 'tracks' | 'friends' | 'preferences'>('rooms');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
-  // Settings state
-  const [latencyMode, setLatencyMode] = useState<'ultra-low' | 'balanced' | 'hifi'>('balanced');
-  const [crossfade, setCrossfade] = useState<number>(3);
+  // Settings state with persistence
+  const [latencyMode, setLatencyMode] = useState<'ultra-low' | 'balanced' | 'hifi'>(() => {
+    try {
+      const saved = localStorage.getItem('modern_audio_prefs');
+      if (saved) return JSON.parse(saved).latencyMode || 'balanced';
+    } catch (_) {}
+    return 'balanced';
+  });
+  const [crossfade, setCrossfade] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('modern_audio_prefs');
+      if (saved) return JSON.parse(saved).crossfade ?? 3;
+    } catch (_) {}
+    return 3;
+  });
   const [autoSync, setAutoSync] = useState<boolean>(true);
   const [hapticReactions, setHapticReactions] = useState<boolean>(true);
 
-  // Match profile by username or fallback to demo profile
-  const profile = DEMO_PROFILE.username.toLowerCase() === username?.toLowerCase()
-    ? DEMO_PROFILE
-    : {
+  const targetUsername = username || currentUser.username;
+  const isOwnProfile =
+    !username ||
+    username.toLowerCase() === 'me' ||
+    username.toLowerCase() === currentUser.username.toLowerCase();
+
+  const [profile, setProfile] = useState<Profile>(() => {
+    if (isOwnProfile) {
+      return {
         ...DEMO_PROFILE,
-        username: username || 'listener',
-        name: DEMO_USERS[username || '']?.name || `${username || 'Listener'}`,
-        avatar: DEMO_USERS[username || '']?.avatar || DEMO_PROFILE.avatar,
+        username: currentUser.username,
+        name: currentUser.name,
+        avatar: currentUser.avatar,
       };
+    }
+    return DEMO_PROFILE.username.toLowerCase() === targetUsername.toLowerCase()
+      ? DEMO_PROFILE
+      : {
+          ...DEMO_PROFILE,
+          username: targetUsername,
+          name: DEMO_USERS[targetUsername]?.name || targetUsername,
+          avatar: DEMO_USERS[targetUsername]?.avatar || DEMO_PROFILE.avatar,
+        };
+  });
+
+  // Load latest profile from service
+  useEffect(() => {
+    let isCancelled = false;
+    const loadProfile = async () => {
+      const fetched = await profileService.getProfile(targetUsername);
+      if (!isCancelled && fetched) {
+        if (isOwnProfile) {
+          setProfile({
+            ...fetched,
+            username: currentUser.username,
+            name: currentUser.name || fetched.name,
+            avatar: currentUser.avatar || fetched.avatar,
+          });
+        } else {
+          setProfile(fetched);
+        }
+      }
+    };
+    loadProfile();
+    return () => {
+      isCancelled = true;
+    };
+  }, [targetUsername, isOwnProfile, currentUser.username, currentUser.name, currentUser.avatar]);
 
   const handleSavePreferences = () => {
+    try {
+      localStorage.setItem(
+        'modern_audio_prefs',
+        JSON.stringify({
+          latencyMode,
+          crossfade,
+          autoSync,
+          hapticReactions,
+        })
+      );
+    } catch (_) {}
     addToast('Audio & sync preferences saved!');
+  };
+
+  const handleSaveProfile = async (data: {
+    name: string;
+    bio: string;
+    currentStatus: string;
+    avatar: string;
+  }) => {
+    await profileService.updateProfile(currentUser.username, data);
+    updateCurrentUser({
+      name: data.name,
+      avatar: data.avatar,
+    });
+    setProfile((prev) => ({
+      ...prev,
+      name: data.name,
+      bio: data.bio,
+      currentStatus: data.currentStatus,
+      avatar: data.avatar,
+    }));
+    addToast('Sound identity updated successfully!');
   };
 
   return (
@@ -46,14 +138,25 @@ export const ProfilePage: React.FC = () => {
       <div className="relative border-b border-border/40 bg-gradient-to-b from-surface-elevated/40 via-surface/20 to-transparent">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-8">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6">
-            {/* Avatar with listening pulse */}
+            {/* Avatar with listening pulse and interactive edit trigger */}
             <div className="relative group">
-              <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl overflow-hidden border-2 border-border/80 shadow-2xl relative">
+              <div
+                onClick={() => isOwnProfile && setIsEditModalOpen(true)}
+                className={`w-28 h-28 sm:w-32 sm:h-32 rounded-3xl overflow-hidden border-2 border-border/80 shadow-2xl relative ${
+                  isOwnProfile ? 'cursor-pointer hover:border-accent-cream transition-all' : ''
+                }`}
+              >
                 <img
                   src={profile.avatar}
                   alt={profile.name}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
+                {isOwnProfile && (
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white">
+                    <Camera className="w-6 h-6 mb-1 text-accent-cream" />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider">Change</span>
+                  </div>
+                )}
               </div>
               <div className="absolute -bottom-2 -right-2 px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-[11px] font-semibold text-accent-cream flex items-center gap-1 shadow-lg backdrop-blur-md">
                 <Sparkles className="w-3 h-3 text-accent-cream" />
@@ -85,6 +188,17 @@ export const ProfilePage: React.FC = () => {
 
             {/* Action buttons */}
             <div className="flex items-center gap-3">
+              {isOwnProfile && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setIsEditModalOpen(true)}
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Edit Profile
+                </Button>
+              )}
               <Link to="/room/late-night-coding">
                 <Button variant="primary" size="sm" className="gap-2">
                   <Headphones className="w-4 h-4" />
@@ -382,6 +496,19 @@ export const ProfilePage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Profile Modal */}
+      {isOwnProfile && (
+        <EditProfileModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          initialName={profile.name}
+          initialBio={profile.bio || ''}
+          initialStatus={profile.currentStatus}
+          initialAvatar={profile.avatar}
+          onSave={handleSaveProfile}
+        />
+      )}
     </div>
   );
 };

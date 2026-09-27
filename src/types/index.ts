@@ -166,7 +166,9 @@ export type SyncEventType =
   | 'SEEK'
   | 'TRACK_CHANGE'
   | 'SYNC_HEARTBEAT'
+  | 'SKIP_VOTE'
   | 'QUEUE_UPDATE'
+  | 'QUEUE_REORDER'
   | 'PRESENCE_SYNC'
   | 'CHAT_MESSAGE'
   | 'REACTION';

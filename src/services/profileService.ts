@@ -29,6 +29,19 @@ export const profileService = {
       }
     }
 
+    // Check if user has local cached edits
+    try {
+      const cached = localStorage.getItem(`modern_profile_${cleanUser}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return {
+          ...DEMO_PROFILE,
+          ...parsed,
+          username: cleanUser,
+        };
+      }
+    } catch (_) {}
+
     if (cleanUser === 'alex' || cleanUser === 'me') {
       return DEMO_PROFILE;
     }
@@ -82,6 +95,52 @@ export const profileService = {
         .from('profiles')
         .update({ current_status: status })
         .ilike('username', username.replace(/^@/, ''));
+    }
+  },
+
+  async updateProfile(
+    userIdOrUsername: string,
+    updates: {
+      name?: string;
+      bio?: string;
+      avatar?: string;
+      currentStatus?: string;
+    }
+  ): Promise<void> {
+    const cleanUser = userIdOrUsername.replace(/^@/, '').toLowerCase();
+
+    if (isSupabaseConfigured && supabase) {
+      const payload: Record<string, any> = {};
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.bio !== undefined) payload.bio = updates.bio;
+      if (updates.avatar !== undefined) payload.avatar = updates.avatar;
+      if (updates.currentStatus !== undefined) payload.current_status = updates.currentStatus;
+
+      try {
+        await supabase
+          .from('profiles')
+          .update(payload)
+          .or(`id.eq.${userIdOrUsername},username.ilike.${cleanUser}`);
+      } catch (err) {
+        console.warn('[ProfileService] Supabase profile update error:', err);
+      }
+    }
+
+    // Persist to local cache for resilience
+    try {
+      const cachedKey = `modern_profile_${cleanUser}`;
+      const existing = localStorage.getItem(cachedKey);
+      const base = existing ? JSON.parse(existing) : (cleanUser === 'alex' ? DEMO_PROFILE : {});
+      localStorage.setItem(
+        cachedKey,
+        JSON.stringify({
+          ...base,
+          ...updates,
+          username: cleanUser,
+        })
+      );
+    } catch (e) {
+      console.warn('[ProfileService] Local storage update failed:', e);
     }
   },
 };

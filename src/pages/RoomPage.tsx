@@ -13,6 +13,9 @@ import {
   ListMusic,
   ThumbsUp,
   Send,
+  ChevronUp,
+  ChevronDown,
+  Trash2,
 } from 'lucide-react';
 import { Room, RoomMember, QueueItem, ChatMessage, FloatingReaction, Track } from '../types';
 import { roomService } from '../services/roomService';
@@ -87,10 +90,25 @@ export const RoomPage: React.FC = () => {
     previousTrack,
     setIsHost,
     broadcastHeartbeat,
+    skipVotes,
+    voteSkip,
   } = usePlaybackStore();
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const isHostUser = Boolean(room && (room.host.id === currentUser.id || currentUser.isAdmin));
+
+  const skipThreshold = Math.max(1, Math.ceil(members.length / 2));
+  const hasVotedToSkip = skipVotes.includes(currentUser.id);
+
+  const handleSkipAction = () => {
+    if (isHostUser) {
+      nextTrack(queue);
+      addToast('Track skipped (Host Override)', 'info');
+    } else {
+      voteSkip(currentUser.id, members.length, queue);
+      addToast('Voted to skip current track', 'info');
+    }
+  };
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -119,6 +137,11 @@ export const RoomPage: React.FC = () => {
       }, []),
       onMemberLeft: useCallback((userId: string) => {
         setMembers((prev) => prev.filter((m) => m.user.id !== userId));
+      }, []),
+      onPresenceSync: useCallback((liveMembers: RoomMember[]) => {
+        if (liveMembers.length > 0) {
+          setMembers(liveMembers);
+        }
       }, []),
     });
 
@@ -270,6 +293,23 @@ export const RoomPage: React.FC = () => {
     addToast(`Added "${newTrack.title}" to room queue`, 'success');
   };
 
+  const handleMoveQueueItem = (fromIndex: number, direction: -1 | 1) => {
+    const toIndex = fromIndex + direction;
+    if (toIndex < 0 || toIndex >= queue.length) return;
+    const newQueue = [...queue];
+    const [moved] = newQueue.splice(fromIndex, 1);
+    newQueue.splice(toIndex, 0, moved);
+    setQueue(newQueue);
+    broadcastQueueUpdate(newQueue);
+  };
+
+  const handleRemoveQueueItem = (itemId: string) => {
+    const newQueue = queue.filter((q) => q.id !== itemId);
+    setQueue(newQueue);
+    broadcastQueueUpdate(newQueue);
+    addToast('Removed from queue', 'info');
+  };
+
   if (loading || !room) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
@@ -400,13 +440,30 @@ export const RoomPage: React.FC = () => {
             {status === 'playing' ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
           </button>
 
-          <button
-            onClick={() => nextTrack(queue)}
-            className="p-2.5 text-text-secondary hover:text-text-primary transition-colors"
-            title="Next"
-          >
-            <SkipForward className="w-5 h-5" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={handleSkipAction}
+              className={`p-2.5 transition-colors relative ${
+                hasVotedToSkip
+                  ? 'text-accent-cream'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title={
+                isHostUser
+                  ? 'Skip Track (Host Override)'
+                  : hasVotedToSkip
+                  ? `You voted to skip (${skipVotes.length}/${skipThreshold})`
+                  : `Vote to Skip Track (${skipVotes.length}/${skipThreshold} votes)`
+              }
+            >
+              <SkipForward className="w-5 h-5" />
+              {!isHostUser && skipVotes.length > 0 && (
+                <span className="absolute -top-1 -right-1.5 px-1.5 py-0.2 rounded-full bg-violet-600 text-white text-[9px] font-bold shadow-md animate-pulse">
+                  {skipVotes.length}/{skipThreshold}
+                </span>
+              )}
+            </button>
+          </div>
 
           <button
             onClick={toggleRepeat}
@@ -562,7 +619,7 @@ export const RoomPage: React.FC = () => {
           </div>
 
           <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
-            {queue.map((item) => (
+            {queue.map((item, idx) => (
               <div
                 key={item.id}
                 className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
@@ -594,6 +651,39 @@ export const RoomPage: React.FC = () => {
                     Added by @{item.addedBy.username}
                   </p>
                 </div>
+
+                {/* Host Reorder Controls */}
+                {isHostUser && (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveQueueItem(idx, -1)}
+                      disabled={idx === 0}
+                      className="p-1 text-text-muted hover:text-text-primary disabled:opacity-20 transition"
+                      title="Move Up"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveQueueItem(idx, 1)}
+                      disabled={idx === queue.length - 1}
+                      className="p-1 text-text-muted hover:text-text-primary disabled:opacity-20 transition"
+                      title="Move Down"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveQueueItem(item.id)}
+                      className="p-1 text-text-muted hover:text-rose-400 transition"
+                      title="Remove Track"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 <button
                   onClick={() => handleVote(item.id)}
                   className={`flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg border transition-colors ${
