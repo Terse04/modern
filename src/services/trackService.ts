@@ -1,5 +1,5 @@
 import { Track } from '../types';
-import { DEMO_TRACKS } from '../data/mockData';
+import { CURATED_OPEN_TRACKS } from './openMusicService';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { storageService } from './storageService';
 
@@ -34,8 +34,8 @@ export const trackService = {
       }
     }
 
-    // 3. Fallback demo tracks if empty or as starters
-    DEMO_TRACKS.forEach((t) => {
+    // 3. Fallback to curated open-source tracks
+    CURATED_OPEN_TRACKS.forEach((t) => {
       if (!map.has(t.id)) {
         map.set(t.id, t);
       }
@@ -65,7 +65,7 @@ export const trackService = {
         }
       } catch (_) {}
     }
-    return DEMO_TRACKS.find((t) => t.id === id) || null;
+    return CURATED_OPEN_TRACKS.find((t) => t.id === id) || null;
   },
 
   async searchTracks(query: string): Promise<Track[]> {

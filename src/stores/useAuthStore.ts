@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import { User } from '../types';
-import { CURRENT_USER } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 const STORAGE_KEY = 'modern_active_user';
@@ -44,14 +43,14 @@ interface AuthState {
 }
 
 function getStoredUser(): User {
-  if (typeof window === 'undefined') return CURRENT_USER;
+  if (typeof window === 'undefined') return ANONYMOUS_GUEST;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch (err) {
     console.warn('Failed to parse stored user:', err);
   }
-  return CURRENT_USER;
+  return ANONYMOUS_GUEST;
 }
 
 function saveStoredUser(user: User) {

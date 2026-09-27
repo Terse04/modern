@@ -11,7 +11,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/useAuthStore';
-import { DEMO_USERS } from '../data/mockData';
 import { useToastStore } from '../components/ui/Toast';
 
 /**
@@ -46,7 +45,6 @@ export const LoginPage: React.FC = () => {
     signInWithEmail,
     signUpWithEmail,
     signInWithOtp,
-    switchProfile,
     createGuestProfile,
     clearError,
   } = useAuthStore();
@@ -95,11 +93,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleGuestQuickSelect = (user: typeof currentUser) => {
-    switchProfile(user);
-    addToast(`Listening as ${user.name} (@${user.username})`, 'info');
-    navigate(redirect);
-  };
 
   const handleCustomGuest = (e: React.FormEvent) => {
     e.preventDefault();
@@ -273,41 +266,18 @@ export const LoginPage: React.FC = () => {
 
               {/* Guest Persona Mode */}
               {mode === 'guest' ? (
-                <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="space-y-4 animate-in fade-in duration-200">
                   <div>
-                    <label className="text-xs font-semibold text-text-secondary block mb-2">
-                      Pick a Demo Persona
+                    <label className="text-xs font-semibold text-text-secondary block mb-1">
+                      Guest Nickname
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {Object.values(DEMO_USERS).slice(0, 4).map((u) => (
-                        <button
-                          key={u.id}
-                          type="button"
-                          onClick={() => handleGuestQuickSelect(u)}
-                          className="flex items-center gap-2 p-2 rounded-xl border border-border/60 bg-surface-elevated/50 hover:border-accent-cream hover:bg-surface-elevated transition-all text-left group"
-                        >
-                          <img
-                            src={u.avatar}
-                            alt={u.name}
-                            className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-text-primary truncate group-hover:text-accent-cream">{u.name}</p>
-                            <p className="text-[10px] text-text-muted truncate">@{u.username}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-border/50">
-                    <label className="text-xs font-semibold text-text-secondary block mb-2">
-                      Or Listen as Custom Guest
-                    </label>
+                    <p className="text-[11px] text-text-muted mb-3">
+                      Join rooms and chat right away without creating an account.
+                    </p>
                     <form onSubmit={handleCustomGuest} className="space-y-3">
                       <input
                         type="text"
-                        placeholder="Guest Nickname (e.g. Luna)"
+                        placeholder="Your Nickname (e.g. Luna)"
                         value={guestName}
                         onChange={(e) => setGuestName(e.target.value)}
                         className="w-full bg-surface-elevated border border-border rounded-xl px-3.5 py-2.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-focus"
@@ -315,7 +285,7 @@ export const LoginPage: React.FC = () => {
                       <button
                         type="submit"
                         disabled={!guestName.trim()}
-                        className="w-full py-2.5 px-4 rounded-xl bg-surface-elevated border border-border text-xs font-medium text-text-primary hover:border-accent-cream hover:text-accent-cream transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+                        className="w-full py-2.5 px-4 rounded-xl bg-accent-cream text-bg font-semibold text-xs hover:bg-accent-creamHover transition-all flex items-center justify-center gap-2 disabled:opacity-40"
                       >
                         <span>Start as Guest Listener</span>
                         <ChevronRight className="w-3.5 h-3.5" />

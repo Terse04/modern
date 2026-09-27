@@ -22,7 +22,6 @@ import { roomService } from '../services/roomService';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useRealtimeRoom } from '../hooks/useRealtimeRoom';
-import { DEMO_CHAT } from '../data/mockData';
 import { AuthModal } from '../components/auth/AuthModal';
 import { RoomHeader } from '../components/room/RoomHeader';
 import { OrbitingParticipants } from '../components/room/OrbitingParticipants';
@@ -162,7 +161,7 @@ export const RoomPage: React.FC = () => {
       setMembers(fetchedMembers);
       const fetchedQueue = await roomService.getRoomQueue(roomId);
       setQueue(fetchedQueue);
-      setChatMessages(DEMO_CHAT[roomId] || []);
+      setChatMessages([]);
       setLoading(false);
     };
 

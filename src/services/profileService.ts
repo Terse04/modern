@@ -1,6 +1,13 @@
 import { Profile } from '../types';
-import { DEMO_PROFILE, DEMO_USERS } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+
+const DEFAULT_PROFILE_STATS = {
+  roomsCreated: 0,
+  roomsJoined: 0,
+  tracksPlayed: 0,
+  listeningStreakDays: 1,
+  listeningHours: 0,
+};
 
 export const profileService = {
   async getProfile(username: string): Promise<Profile | null> {
@@ -11,20 +18,22 @@ export const profileService = {
         .from('profiles')
         .select('*')
         .ilike('username', cleanUser)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         return {
           id: data.id,
           username: data.username,
-          name: data.name,
-          bio: data.bio,
-          avatar: data.avatar,
-          currentStatus: data.current_status || 'Listening with friends',
-          stats: data.stats || DEMO_PROFILE.stats,
-          favoriteTracks: DEMO_PROFILE.favoriteTracks,
-          recentRooms: DEMO_PROFILE.recentRooms,
-          friends: DEMO_PROFILE.friends,
+          name: data.name || data.username,
+          bio: data.bio || 'Music lover listening with friends.',
+          avatar:
+            data.avatar ||
+            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+          currentStatus: data.current_status || 'Ready to listen',
+          stats: data.stats || DEFAULT_PROFILE_STATS,
+          favoriteTracks: [],
+          recentRooms: [],
+          friends: [],
         };
       }
     }
@@ -35,57 +44,35 @@ export const profileService = {
       if (cached) {
         const parsed = JSON.parse(cached);
         return {
-          ...DEMO_PROFILE,
-          ...parsed,
+          id: `usr_${cleanUser}`,
           username: cleanUser,
+          name: parsed.name || cleanUser,
+          bio: parsed.bio || 'Music collector and listener.',
+          avatar:
+            parsed.avatar ||
+            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+          currentStatus: parsed.currentStatus || 'Ready to listen',
+          stats: parsed.stats || DEFAULT_PROFILE_STATS,
+          favoriteTracks: parsed.favoriteTracks || [],
+          recentRooms: parsed.recentRooms || [],
+          friends: parsed.friends || [],
         };
       }
     } catch (_) {}
 
-    if (cleanUser === 'alex' || cleanUser === 'me') {
-      return DEMO_PROFILE;
-    }
-
-    const matchedUser = DEMO_USERS[cleanUser];
-    if (matchedUser) {
-      return {
-        id: matchedUser.id,
-        username: matchedUser.username,
-        name: matchedUser.name,
-        bio: 'Music enthusiast exploring shared soundscapes.',
-        avatar: matchedUser.avatar,
-        currentStatus: 'Listening in Late Night Coding',
-        stats: {
-          roomsCreated: 14,
-          roomsJoined: 89,
-          tracksPlayed: 432,
-          listeningStreakDays: 6,
-          listeningHours: 92,
-        },
-        favoriteTracks: DEMO_PROFILE.favoriteTracks.slice(0, 2),
-        recentRooms: DEMO_PROFILE.recentRooms.slice(0, 2),
-        friends: DEMO_PROFILE.friends.slice(0, 3),
-      };
-    }
-
-    // Return a default profile for any entered username
+    // Return a clean default profile for any entered username
     return {
       id: `usr_${cleanUser}`,
       username: cleanUser,
       name: cleanUser.charAt(0).toUpperCase() + cleanUser.slice(1),
       bio: 'Music collector and listener.',
-      avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80`,
+      avatar:
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
       currentStatus: 'Ready to listen',
-      stats: {
-        roomsCreated: 3,
-        roomsJoined: 28,
-        tracksPlayed: 115,
-        listeningStreakDays: 2,
-        listeningHours: 24,
-      },
-      favoriteTracks: DEMO_PROFILE.favoriteTracks.slice(0, 2),
-      recentRooms: DEMO_PROFILE.recentRooms.slice(0, 1),
-      friends: DEMO_PROFILE.friends.slice(0, 2),
+      stats: DEFAULT_PROFILE_STATS,
+      favoriteTracks: [],
+      recentRooms: [],
+      friends: [],
     };
   },
 
@@ -99,48 +86,49 @@ export const profileService = {
   },
 
   async updateProfile(
-    userIdOrUsername: string,
-    updates: {
-      name?: string;
-      bio?: string;
-      avatar?: string;
-      currentStatus?: string;
-    }
-  ): Promise<void> {
-    const cleanUser = userIdOrUsername.replace(/^@/, '').toLowerCase();
+    username: string,
+    updates: Partial<Omit<Profile, 'id' | 'username'>>
+  ): Promise<Profile | null> {
+    const cleanUser = username.replace(/^@/, '').toLowerCase();
 
     if (isSupabaseConfigured && supabase) {
-      const payload: Record<string, any> = {};
-      if (updates.name !== undefined) payload.name = updates.name;
-      if (updates.bio !== undefined) payload.bio = updates.bio;
-      if (updates.avatar !== undefined) payload.avatar = updates.avatar;
-      if (updates.currentStatus !== undefined) payload.current_status = updates.currentStatus;
+      const dbUpdates: Record<string, any> = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+      if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
+      if (updates.currentStatus !== undefined) dbUpdates.current_status = updates.currentStatus;
+      if (updates.stats !== undefined) dbUpdates.stats = updates.stats;
 
-      try {
-        await supabase
-          .from('profiles')
-          .update(payload)
-          .or(`id.eq.${userIdOrUsername},username.ilike.${cleanUser}`);
-      } catch (err) {
-        console.warn('[ProfileService] Supabase profile update error:', err);
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(dbUpdates)
+        .ilike('username', cleanUser)
+        .select()
+        .single();
+
+      if (!error && data) {
+        return {
+          id: data.id,
+          username: data.username,
+          name: data.name,
+          bio: data.bio,
+          avatar: data.avatar,
+          currentStatus: data.current_status || 'Ready to listen',
+          stats: data.stats || DEFAULT_PROFILE_STATS,
+          favoriteTracks: [],
+          recentRooms: [],
+          friends: [],
+        };
       }
     }
 
-    // Persist to local cache for resilience
+    // LocalStorage fallback
+    const current = await this.getProfile(cleanUser);
+    if (!current) return null;
+    const merged = { ...current, ...updates };
     try {
-      const cachedKey = `modern_profile_${cleanUser}`;
-      const existing = localStorage.getItem(cachedKey);
-      const base = existing ? JSON.parse(existing) : (cleanUser === 'alex' ? DEMO_PROFILE : {});
-      localStorage.setItem(
-        cachedKey,
-        JSON.stringify({
-          ...base,
-          ...updates,
-          username: cleanUser,
-        })
-      );
-    } catch (e) {
-      console.warn('[ProfileService] Local storage update failed:', e);
-    }
+      localStorage.setItem(`modern_profile_${cleanUser}`, JSON.stringify(merged));
+    } catch (_) {}
+    return merged;
   },
 };

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Users, Radio, ChevronRight, Headphones } from 'lucide-react';
 import { Room } from '../types';
 import { roomService } from '../services/roomService';
-import { DEMO_PROFILE } from '../data/mockData';
 import { LiveBadge } from '../components/ui/Badge';
 
 const RoomCard: React.FC<{ room: Room; featured?: boolean }> = ({ room, featured }) => (
@@ -93,8 +92,6 @@ export const DiscoverPage: React.FC = () => {
     });
   }, []);
 
-  const friends = DEMO_PROFILE.friends;
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 space-y-12">
       {/* Hero Banner */}
@@ -151,6 +148,18 @@ export const DiscoverPage: React.FC = () => {
               <div key={i} className="aspect-[4/3] rounded-2xl bg-surface-elevated animate-pulse" />
             ))}
           </div>
+        ) : rooms.length === 0 ? (
+          <div className="p-8 rounded-2xl border border-dashed border-border/70 text-center space-y-3">
+            <p className="text-sm font-semibold text-text-primary">No live rooms active right now</p>
+            <p className="text-xs text-text-muted">Create a room and invite your friends to start listening!</p>
+            <Link
+              to="/create"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-accent-cream text-bg font-semibold text-xs rounded-full hover:bg-accent-creamHover transition-colors"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              Start First Room
+            </Link>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {rooms.map((room) => (
@@ -160,85 +169,27 @@ export const DiscoverPage: React.FC = () => {
         )}
       </section>
 
-      {/* Your Friends Are Listening */}
-      <section>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold tracking-tight text-text-primary font-display uppercase">
-            Your Friends Are Listening
-          </h2>
-          <Link
-            to="/profile"
-            className="flex items-center gap-1 text-xs font-medium text-text-muted hover:text-accent-cream transition-colors"
-          >
-            Your Profile <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {friends.map((friend) => (
-            <Link
-              key={friend.id}
-              to={`/profile/${friend.username}`}
-              className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-surface-elevated/50 border border-border/40 hover:border-accent-cream/50 hover:bg-surface-elevated transition-all group"
-            >
-              <div className="relative flex-shrink-0">
-                <img
-                  src={friend.avatar}
-                  alt={friend.name}
-                  className="w-11 h-11 rounded-full object-cover ring-2 ring-white/10 group-hover:scale-105 transition-transform"
-                />
-                <span
-                  className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-surface-elevated ${
-                    friend.status === 'reacting'
-                      ? 'bg-accent-emerald animate-pulse'
-                      : friend.status === 'joined'
-                      ? 'bg-blue-400'
-                      : 'bg-accent-emerald'
-                  }`}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-text-primary group-hover:text-accent-cream transition-colors truncate">
-                    {friend.name}
-                  </span>
-                  <span
-                    className={`text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                      friend.status === 'reacting'
-                        ? 'text-accent-emerald bg-accent-emerald/10 border-accent-emerald/20'
-                        : friend.status === 'joined'
-                        ? 'text-blue-400 bg-blue-400/10 border-blue-400/20'
-                        : 'text-text-muted bg-surface-hover border-border'
-                    }`}
-                  >
-                    {friend.status === 'reacting' ? 'Reacting' : friend.status === 'joined' ? 'Just Joined' : 'Listening'}
-                  </span>
-                </div>
-                <p className="text-xs text-text-muted mt-0.5 truncate">{friend.statusText}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       {/* Trending Rooms */}
-      <section>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold tracking-tight text-text-primary font-display uppercase">
-            Trending Rooms
-          </h2>
-          <Link
-            to="/rooms"
-            className="flex items-center gap-1 text-xs font-medium text-text-muted hover:text-text-secondary transition-colors"
-          >
-            See all <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-          {rooms.map((room) => (
-            <SmallRoomCard key={room.id} room={room} />
-          ))}
-        </div>
-      </section>
+      {rooms.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-bold tracking-tight text-text-primary font-display uppercase">
+              Trending Rooms
+            </h2>
+            <Link
+              to="/rooms"
+              className="flex items-center gap-1 text-xs font-medium text-text-muted hover:text-text-secondary transition-colors"
+            >
+              See all <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+            {rooms.map((room) => (
+              <SmallRoomCard key={room.id} room={room} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

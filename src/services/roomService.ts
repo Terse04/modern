@@ -1,11 +1,18 @@
 import { Room, RoomMember, QueueItem, User, Track } from '../types';
-import { DEMO_ROOMS, DEMO_MEMBERS, DEMO_QUEUE, DEMO_USERS, DEMO_TRACKS } from '../data/mockData';
+import { CURATED_OPEN_TRACKS } from './openMusicService';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
-// In-memory demo store
-let roomsStore: Room[] = [...DEMO_ROOMS];
-const membersStore: Record<string, RoomMember[]> = { ...DEMO_MEMBERS };
-const queueStore: Record<string, QueueItem[]> = { ...DEMO_QUEUE };
+const DEFAULT_HOST_FALLBACK: User = {
+  id: 'usr_host',
+  username: 'host',
+  name: 'Room Host',
+  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+};
+
+// In-memory store (real user rooms cached locally)
+let roomsStore: Room[] = [];
+const membersStore: Record<string, RoomMember[]> = {};
+const queueStore: Record<string, QueueItem[]> = {};
 
 export const roomService = {
   async getLiveRooms(): Promise<Room[]> {
@@ -29,7 +36,7 @@ export const roomService = {
                 name: r.host.name,
                 avatar: r.host.avatar,
               }
-            : DEMO_USERS.alex,
+            : DEFAULT_HOST_FALLBACK,
           isLive: r.is_live,
           listenerCount: r.listener_count || 1,
           currentTrackId: r.current_track_id,
@@ -73,7 +80,7 @@ export const roomService = {
                 name: data.host.name,
                 avatar: data.host.avatar,
               }
-            : DEMO_USERS.alex,
+            : DEFAULT_HOST_FALLBACK,
           isLive: data.is_live,
           listenerCount: data.listener_count || 1,
           currentTrackId: data.current_track_id,
@@ -116,11 +123,12 @@ export const roomService = {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || `room-${Date.now().toString(36)}`;
 
-    const hostUser = data.host || DEMO_USERS.alex;
+    const hostUser = data.host || DEFAULT_HOST_FALLBACK;
     const isUuid = (val?: string) =>
       Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
     const dbHostId = isUuid(hostUser?.id) ? hostUser.id : null;
 
+    const initialTrack = CURATED_OPEN_TRACKS[0];
     const newRoom: Room = {
       id: slug,
       name: data.name,
@@ -131,8 +139,8 @@ export const roomService = {
       host: hostUser,
       isLive: true,
       listenerCount: 1,
-      currentTrackId: DEMO_TRACKS[0].id,
-      currentTrack: DEMO_TRACKS[0],
+      currentTrackId: initialTrack.id,
+      currentTrack: initialTrack,
       settings: {
         allowChat: data.allowChat ?? true,
         allowQueueAdditions: data.allowQueueAdditions ?? true,
@@ -194,7 +202,7 @@ export const roomService = {
       {
         id: `q_${Date.now()}`,
         roomId: newRoom.id,
-        track: DEMO_TRACKS[0],
+        track: initialTrack,
         addedBy: newRoom.host,
         addedAt: new Date().toISOString(),
         votes: 1,

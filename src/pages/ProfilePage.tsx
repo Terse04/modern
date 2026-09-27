@@ -13,7 +13,6 @@ import {
   Camera,
 } from 'lucide-react';
 import { Profile } from '../types';
-import { DEMO_PROFILE, DEMO_USERS } from '../data/mockData';
 import { Button } from '../components/ui/Button';
 import { useToastStore } from '../components/ui/Toast';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -54,22 +53,26 @@ export const ProfilePage: React.FC = () => {
     username.toLowerCase() === currentUser.username.toLowerCase();
 
   const [profile, setProfile] = useState<Profile>(() => {
-    if (isOwnProfile) {
-      return {
-        ...DEMO_PROFILE,
-        username: currentUser.username,
-        name: currentUser.name,
-        avatar: currentUser.avatar,
-      };
-    }
-    return DEMO_PROFILE.username.toLowerCase() === targetUsername.toLowerCase()
-      ? DEMO_PROFILE
-      : {
-          ...DEMO_PROFILE,
-          username: targetUsername,
-          name: DEMO_USERS[targetUsername]?.name || targetUsername,
-          avatar: DEMO_USERS[targetUsername]?.avatar || DEMO_PROFILE.avatar,
-        };
+    return {
+      id: isOwnProfile ? currentUser.id : `usr_${targetUsername}`,
+      username: isOwnProfile ? currentUser.username : targetUsername,
+      name: isOwnProfile ? currentUser.name : targetUsername,
+      bio: 'Music enthusiast exploring shared soundscapes.',
+      avatar: isOwnProfile
+        ? currentUser.avatar
+        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+      currentStatus: 'Ready to listen',
+      stats: {
+        roomsCreated: 0,
+        roomsJoined: 0,
+        tracksPlayed: 0,
+        listeningStreakDays: 1,
+        listeningHours: 0,
+      },
+      favoriteTracks: [],
+      recentRooms: [],
+      friends: [],
+    };
   });
 
   // Load latest profile from service
@@ -365,36 +368,42 @@ export const ProfilePage: React.FC = () => {
 
         {/* Tab 3: Friends / Listening Circle */}
         {activeTab === 'friends' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-            {profile.friends.map((friend) => (
-              <div
-                key={friend.id}
-                className="flex items-center justify-between p-4 rounded-2xl bg-surface/60 border border-border/40 hover:border-border-focus transition-all"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="relative">
-                    <img
-                      src={friend.avatar}
-                      alt={friend.name}
-                      className="w-12 h-12 rounded-full object-cover border border-border"
-                    />
-                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-accent-emerald border-2 border-surface" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-text-primary">{friend.name}</p>
-                    <p className="text-xs text-accent-cream/90 flex items-center gap-1 mt-0.5">
-                      <Headphones className="w-3 h-3" />
-                      {friend.statusText}
-                    </p>
-                  </div>
-                </div>
-                <Link to="/room/late-night-coding">
-                  <Button variant="secondary" size="sm" className="text-xs">
-                    Join
-                  </Button>
-                </Link>
+          <div>
+            {profile.friends.length === 0 ? (
+              <div className="p-8 rounded-2xl border border-dashed border-border/70 text-center space-y-2 mt-6">
+                <p className="text-sm font-semibold text-text-primary">No listening friends yet</p>
+                <p className="text-xs text-text-muted">
+                  Share your room links with friends to start listening and synchronizing soundscapes together!
+                </p>
               </div>
-            ))}
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                {profile.friends.map((friend) => (
+                  <div
+                    key={friend.id}
+                    className="flex items-center justify-between p-4 rounded-2xl bg-surface/60 border border-border/40 hover:border-border-focus transition-all"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="relative">
+                        <img
+                          src={friend.avatar}
+                          alt={friend.name}
+                          className="w-12 h-12 rounded-full object-cover border border-border"
+                        />
+                        <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-accent-emerald border-2 border-surface" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-text-primary">{friend.name}</p>
+                        <p className="text-xs text-accent-cream/90 flex items-center gap-1 mt-0.5">
+                          <Headphones className="w-3 h-3" />
+                          {friend.statusText}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

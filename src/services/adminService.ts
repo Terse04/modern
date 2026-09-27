@@ -1,5 +1,5 @@
 import { User, Room, Track, PlatformSettings, VisibilityType } from '../types';
-import { DEMO_USERS, DEMO_ROOMS, DEMO_TRACKS } from '../data/mockData';
+import { CURATED_OPEN_TRACKS } from './openMusicService';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 const SETTINGS_STORAGE_KEY = 'modern_platform_settings';
@@ -16,8 +16,6 @@ const SETTINGS_STORAGE_KEY = 'modern_platform_settings';
  * It has no effect when Supabase is configured, where is_admin comes from the
  * database.
  */
-const DEMO_MODE_ADMIN =
-  !isSupabaseConfigured && import.meta.env.VITE_DEMO_ADMIN === 'true';
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   guestDailyRoomLimit: 5,
@@ -98,12 +96,7 @@ export const adminService = {
       }
     }
 
-    return Object.values(DEMO_USERS).map((u) => ({
-      ...u,
-      isAdmin: DEMO_MODE_ADMIN,
-      isBanned: false,
-      role: DEMO_MODE_ADMIN ? 'admin' : 'listener',
-    }));
+    return [];
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<boolean> {
@@ -143,7 +136,12 @@ export const adminService = {
           name: r.name,
           description: r.description,
           artwork: r.artwork,
-          host: r.host || DEMO_USERS.alex,
+          host: r.host || {
+            id: r.host_id || 'usr_host',
+            username: 'host',
+            name: 'Room Host',
+            avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+          },
           isLive: r.is_live,
           listenerCount: r.listener_count || 1,
           currentTrackId: r.current_track_id,
@@ -162,7 +160,7 @@ export const adminService = {
       }
     }
 
-    return [...DEMO_ROOMS];
+    return [];
   },
 
   async toggleRoomLive(roomId: string, isLive: boolean): Promise<boolean> {
@@ -173,8 +171,6 @@ export const adminService = {
         .eq('id', roomId);
       return !error;
     }
-    const r = DEMO_ROOMS.find((room) => room.id === roomId);
-    if (r) r.isLive = isLive;
     return true;
   },
 
@@ -194,8 +190,6 @@ export const adminService = {
       const { error } = await supabase.from('rooms').delete().eq('id', roomId);
       return !error;
     }
-    const idx = DEMO_ROOMS.findIndex((r) => r.id === roomId);
-    if (idx !== -1) DEMO_ROOMS.splice(idx, 1);
     return true;
   },
 
@@ -216,7 +210,7 @@ export const adminService = {
         }));
       }
     }
-    return [...DEMO_TRACKS];
+    return [...CURATED_OPEN_TRACKS];
   },
 
   async addTrack(track: Omit<Track, 'id'>): Promise<Track> {
@@ -236,7 +230,6 @@ export const adminService = {
       });
     }
 
-    DEMO_TRACKS.push(newTrack);
     return newTrack;
   },
 
@@ -245,8 +238,6 @@ export const adminService = {
       const { error } = await supabase.from('tracks').delete().eq('id', trackId);
       return !error;
     }
-    const idx = DEMO_TRACKS.findIndex((t) => t.id === trackId);
-    if (idx !== -1) DEMO_TRACKS.splice(idx, 1);
     return true;
   },
 

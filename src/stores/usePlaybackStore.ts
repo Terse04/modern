@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Track, PlaybackStatus, DriftMetrics, SyncEvent, QueueItem } from '../types';
 import { globalAudioEngine } from '../lib/AudioPlayer';
 import { realtimeService } from '../services/realtimeService';
-import { DEMO_TRACKS } from '../data/mockData';
+import { CURATED_OPEN_TRACKS } from '../services/openMusicService';
 import { useAuthStore } from './useAuthStore';
 import { trackService } from '../services/trackService';
 
@@ -86,10 +86,10 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
 
   return {
     currentRoomId: null,
-    currentTrack: DEMO_TRACKS[0],
+    currentTrack: CURATED_OPEN_TRACKS[0],
     status: 'paused',
     position: 0,
-    duration: DEMO_TRACKS[0].duration,
+    duration: CURATED_OPEN_TRACKS[0].duration,
     volume: 0.8,
     isMuted: false,
     isShuffled: false,
@@ -145,7 +145,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     },
 
     initRoom: (roomId: string, initialTrack?: Track, isHostUser: boolean = false) => {
-      const trackToPlay = initialTrack || get().currentTrack || DEMO_TRACKS[0];
+      const trackToPlay = initialTrack || get().currentTrack || CURATED_OPEN_TRACKS[0];
       set({
         currentRoomId: roomId,
         currentTrack: trackToPlay,
