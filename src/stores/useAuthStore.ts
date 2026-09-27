@@ -89,17 +89,33 @@ async function fetchProfileByAuthUser(
   client: NonNullable<typeof supabase>,
   authUserId: string
 ): Promise<User | null> {
-  const { data, error } = await client
+  // 1. Primary lookup by profiles.id = authUserId (matches Supabase Auth UID -> profiles.id)
+  const { data: byId, error: errById } = await client
     .from('profiles')
     .select('*')
-    .eq('auth_user_id', authUserId)
+    .eq('id', authUserId)
     .maybeSingle();
 
-  if (error) {
-    console.warn('[Auth] profile lookup failed:', error.message);
-    return null;
+  if (!errById && byId) {
+    return mapProfile(byId);
   }
-  return data ? mapProfile(data) : null;
+
+  // 2. Secondary lookup by auth_user_id column if present
+  try {
+    const { data: byAuthId, error: errByAuthId } = await client
+      .from('profiles')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .maybeSingle();
+
+    if (!errByAuthId && byAuthId) {
+      return mapProfile(byAuthId);
+    }
+  } catch {
+    // Column may not exist in current schema
+  }
+
+  return null;
 }
 
 /**
@@ -128,22 +144,20 @@ async function ensureProfileForAuthUser(
   const avatar =
     meta.avatar_url ||
     'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80';
-  const profileId = `usr_${sessionUser.id.replace(/-/g, '').slice(0, 12)}`;
 
   try {
     const { data: inserted, error: insertErr } = await client
       .from('profiles')
       .upsert(
         {
-          id: profileId,
-          auth_user_id: sessionUser.id,
+          id: sessionUser.id,
           username: cleanUsername,
           name: cleanName,
           avatar,
           current_status: 'Listening with friends',
           role: 'listener',
         },
-        { onConflict: 'auth_user_id' }
+        { onConflict: 'id' }
       )
       .select('*')
       .maybeSingle();
@@ -159,15 +173,14 @@ async function ensureProfileForAuthUser(
         .from('profiles')
         .upsert(
           {
-            id: profileId,
-            auth_user_id: sessionUser.id,
+            id: sessionUser.id,
             username: fallbackUsername,
             name: cleanName,
             avatar,
             current_status: 'Listening with friends',
             role: 'listener',
           },
-          { onConflict: 'auth_user_id' }
+          { onConflict: 'id' }
         )
         .select('*')
         .maybeSingle();
@@ -180,9 +193,9 @@ async function ensureProfileForAuthUser(
     console.warn('[Auth] Failed to recreate deleted profile row in Supabase:', err);
   }
 
-  // Fallback memory user
+  // Fallback memory user with valid auth UUID
   return {
-    id: profileId,
+    id: sessionUser.id,
     username: cleanUsername,
     name: cleanName,
     avatar,

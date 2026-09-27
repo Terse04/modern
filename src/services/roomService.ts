@@ -22,14 +22,16 @@ export const roomService = {
           name: r.name,
           description: r.description,
           artwork: r.artwork,
-          host: {
-            id: r.host.id,
-            username: r.host.username,
-            name: r.host.name,
-            avatar: r.host.avatar,
-          },
+          host: r.host
+            ? {
+                id: r.host.id,
+                username: r.host.username,
+                name: r.host.name,
+                avatar: r.host.avatar,
+              }
+            : DEMO_USERS.alex,
           isLive: r.is_live,
-          listenerCount: r.listener_count,
+          listenerCount: r.listener_count || 1,
           currentTrackId: r.current_track_id,
           currentTrack: r.current_track,
           settings: r.settings || {
@@ -50,12 +52,13 @@ export const roomService = {
   },
 
   async getRoomById(id: string): Promise<Room | null> {
+    const cleanId = id.trim().toLowerCase().replace(/^#+/, '');
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase
         .from('rooms')
         .select('*, host:profiles(*), current_track:tracks(*)')
-        .eq('id', id)
-        .single();
+        .ilike('id', cleanId)
+        .maybeSingle();
 
       if (!error && data) {
         return {
@@ -63,24 +66,35 @@ export const roomService = {
           name: data.name,
           description: data.description,
           artwork: data.artwork,
-          host: {
-            id: data.host.id,
-            username: data.host.username,
-            name: data.host.name,
-            avatar: data.host.avatar,
-          },
+          host: data.host
+            ? {
+                id: data.host.id,
+                username: data.host.username,
+                name: data.host.name,
+                avatar: data.host.avatar,
+              }
+            : DEMO_USERS.alex,
           isLive: data.is_live,
-          listenerCount: data.listener_count,
+          listenerCount: data.listener_count || 1,
           currentTrackId: data.current_track_id,
           currentTrack: data.current_track,
-          settings: data.settings,
+          settings: data.settings || {
+            allowChat: true,
+            allowQueueAdditions: true,
+            playbackPermissions: 'everyone',
+            visibility: 'public',
+            maxListeners: 100,
+            bitrateKbps: 320,
+          },
           createdAt: data.created_at,
           tags: data.tags || [],
         };
       }
     }
 
-    const room = roomsStore.find((r) => r.id.toLowerCase() === id.toLowerCase());
+    const room = roomsStore.find(
+      (r) => r.id.toLowerCase() === cleanId || r.id.toLowerCase() === id.toLowerCase()
+    );
     return room || null;
   },
 
@@ -98,8 +112,14 @@ export const roomService = {
     const slug = data.name
       .toLowerCase()
       .trim()
+      .replace(/^#+/, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || `room-${Date.now().toString(36)}`;
+
+    const hostUser = data.host || DEMO_USERS.alex;
+    const isUuid = (val?: string) =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+    const dbHostId = isUuid(hostUser?.id) ? hostUser.id : null;
 
     const newRoom: Room = {
       id: slug,
@@ -108,7 +128,7 @@ export const roomService = {
       artwork:
         data.artwork ||
         'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
-      host: data.host || DEMO_USERS.alex,
+      host: hostUser,
       isLive: true,
       listenerCount: 1,
       currentTrackId: DEMO_TRACKS[0].id,
@@ -126,16 +146,33 @@ export const roomService = {
     };
 
     if (isSupabaseConfigured && supabase) {
-      await supabase.from('rooms').insert({
+      const { error: insertErr } = await supabase.from('rooms').insert({
         id: newRoom.id,
         name: newRoom.name,
         description: newRoom.description,
         artwork: newRoom.artwork,
-        host_id: newRoom.host.id,
+        host_id: dbHostId,
         is_live: true,
         listener_count: 1,
         settings: newRoom.settings,
       });
+
+      if (insertErr) {
+        console.error('[roomService] Supabase insert room error:', insertErr);
+        // Fallback retry with null host_id if foreign key was rejected
+        if (dbHostId) {
+          await supabase.from('rooms').insert({
+            id: newRoom.id,
+            name: newRoom.name,
+            description: newRoom.description,
+            artwork: newRoom.artwork,
+            host_id: null,
+            is_live: true,
+            listener_count: 1,
+            settings: newRoom.settings,
+          });
+        }
+      }
     }
 
     // Add to demo store
@@ -266,16 +303,23 @@ export const roomService = {
       driftMs: Math.floor(Math.random() * 20) - 10,
     };
 
-    if (isSupabaseConfigured && supabase) {
-      await supabase.from('room_members').upsert({
-        id: newMember.id,
-        room_id: roomId,
-        user_id: user.id,
-        role: newMember.role,
-        status: newMember.status,
-        status_text: newMember.statusText,
-        drift_ms: newMember.driftMs,
-      });
+    const isUuid = (val?: string) =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
+    if (isSupabaseConfigured && supabase && isUuid(user?.id)) {
+      try {
+        await supabase.from('room_members').upsert({
+          id: newMember.id,
+          room_id: roomId,
+          user_id: user.id,
+          role: newMember.role,
+          status: newMember.status,
+          status_text: newMember.statusText,
+          drift_ms: newMember.driftMs,
+        });
+      } catch (err) {
+        console.warn('[roomService] joinRoom member upsert skipped:', err);
+      }
     }
 
     if (!membersStore[roomId]) {

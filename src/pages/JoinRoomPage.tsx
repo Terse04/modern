@@ -13,7 +13,8 @@ export const JoinRoomPage: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
 
   const handleJoin = async () => {
-    const roomId = code.trim().toLowerCase().replace(/\s+/g, '-');
+    const raw = code.trim().toLowerCase().replace(/^#+/, '');
+    const roomId = raw.replace(/\s+/g, '-');
     if (!roomId) {
       addToast('Please enter a room code', 'error');
       return;
@@ -23,12 +24,13 @@ export const JoinRoomPage: React.FC = () => {
     try {
       const room = await roomService.getRoomById(roomId);
       if (room) {
-        addToast(`Joining "${room.name}"...`);
-        navigate(`/room/${roomId}`);
+        addToast(`Joining "${room.name}"...`, 'success');
+        navigate(`/room/${room.id}`);
       } else {
         addToast('Room not found — check your code', 'error');
       }
-    } catch {
+    } catch (err) {
+      console.error('[JoinRoom] Error:', err);
       addToast('Failed to join room', 'error');
     } finally {
       setIsJoining(false);
