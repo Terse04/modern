@@ -38,7 +38,7 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
 
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-text-primary uppercase font-display truncate max-w-[120px] sm:max-w-none">
+            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-text-primary uppercase font-display truncate max-w-[150px] xs:max-w-[220px] sm:max-w-none">
               {room.name}
             </h1>
             <span className="text-text-muted/50 text-xs hidden sm:inline">|</span>
@@ -79,10 +79,10 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           size="sm"
           onClick={onOpenInvite}
           className="shadow-sm font-semibold tracking-wide text-xs sm:text-sm"
+          title="Invite Friends"
         >
           <UserPlus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">+ INVITE</span>
-          <span className="sm:hidden">+</span>
+          <span className="hidden sm:inline">INVITE</span>
         </Button>
 
         <Button

@@ -14,6 +14,7 @@ import {
   ThumbsUp,
   Send,
   Trash2,
+  Plus,
 } from 'lucide-react';
 import { Room, RoomMember, QueueItem, ChatMessage, FloatingReaction, Track } from '../types';
 import { roomService } from '../services/roomService';
@@ -65,6 +66,8 @@ export const RoomPage: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
   const [auraMode, setAuraMode] = useState<VisualizerMode>('spectrum');
+  const [showMobileVolume, setShowMobileVolume] = useState(false);
+  const volumeRef = useRef<HTMLDivElement>(null);
 
   // Playback store
   const {
@@ -108,6 +111,22 @@ export const RoomPage: React.FC = () => {
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
+
+  // Close mobile volume popover on outside click
+  useEffect(() => {
+    if (!showMobileVolume) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (volumeRef.current && !volumeRef.current.contains(e.target as Node)) {
+        setShowMobileVolume(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showMobileVolume]);
 
   // ─── Realtime sync hook ────────────────────────────────────────────────────
   const { broadcastChat, broadcastReaction, broadcastQueueUpdate, joinAsCurrentUser } =
@@ -360,7 +379,7 @@ export const RoomPage: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-start relative z-10 px-4 pt-2 pb-3 sm:pt-3 sm:pb-4 max-w-5xl mx-auto w-full min-h-0 gap-3 sm:gap-4 overflow-y-auto">
         {/* Center Stage: Artwork + Orbiting Participants */}
-        <div className="relative w-full max-w-[200px] sm:max-w-[230px] md:max-w-[260px] lg:max-w-[290px] mx-auto flex-shrink-0">
+        <div className="relative w-full max-w-[190px] sm:max-w-[230px] md:max-w-[260px] lg:max-w-[290px] mx-auto flex-shrink-0">
           {/* Orbiting Participants (Desktop) */}
           <OrbitingParticipants members={members} isMobile={false} />
 
@@ -381,31 +400,24 @@ export const RoomPage: React.FC = () => {
           <ReactionOverlay reactions={floatingReactions} />
         </div>
 
-        {/* Mobile Participants Row */}
-        <div className="md:hidden w-full flex-shrink-0 -mt-1">
-          <OrbitingParticipants members={members} isMobile={true} />
-        </div>
-
-        {/* Bottom Stage: Track Info + Aura Selector + Progress + Controls */}
+        {/* Bottom Stage: Track Info + Mobile Participants + HUD + Progress + Controls */}
         <div className="w-full flex flex-col items-center gap-2 sm:gap-2.5 flex-shrink-0 pb-safe">
           {/* Track Info */}
-          <div className="text-center space-y-0.5">
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-text-primary font-display">
+          <div className="text-center space-y-0.5 max-w-sm sm:max-w-md px-2">
+            <h2 className="text-base sm:text-xl font-bold tracking-tight text-text-primary font-display truncate">
               {track?.title || 'No Track'}
             </h2>
-            <p className="text-xs text-text-secondary">{track?.artist || 'Unknown Artist'}</p>
+            <p className="text-xs text-text-secondary truncate">{track?.artist || 'Unknown Artist'}</p>
           </div>
 
-          {/* Synced Badge, Live pill & Visualizer Aura Mode */}
+          {/* Mobile Participants Row (Clean, Centered, and Thumb-Friendly) */}
+          <div className="md:hidden w-full flex-shrink-0 py-0.5">
+            <OrbitingParticipants members={members} isMobile={true} />
+          </div>
+
+          {/* Synced Badge & Visualizer Aura Mode (Cleaned up, no duplicate live badge) */}
           <div className="flex flex-wrap items-center justify-center gap-2">
             <SyncControlHUD hostName={room.host.name} isHostUser={isHostUser} />
-
-            {/* Live sync pill */}
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent-emerald/10 border border-accent-emerald/25 text-[11px] font-medium text-accent-emerald">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-emerald animate-pulse" />
-              Live · {members.length} listener{members.length !== 1 ? 's' : ''}
-            </span>
-
             <AuraModeSelector mode={auraMode} onChange={setAuraMode} />
           </div>
 
@@ -495,63 +507,116 @@ export const RoomPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Volume + Utility Bar */}
-        <div className="flex items-center justify-center gap-4 sm:gap-6">
-          <button
-            onClick={toggleMute}
-            className="p-2 text-text-muted hover:text-text-secondary transition-colors"
-            title={isMuted ? 'Unmute' : 'Mute'}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={isMuted ? 0 : volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))}
-            className="w-24 sm:w-32"
-          />
-
-          <div className="w-px h-5 bg-border" />
-
-          {/* Reaction Picker */}
-          <div className="flex items-center gap-1">
-            {REACTION_EMOJIS.slice(0, 4).map((emoji) => (
+        {/* Quick Reactions Bar */}
+        <div className="flex items-center justify-center pt-0.5">
+          <div className="flex items-center gap-2 sm:gap-2.5 px-3.5 py-1.5 rounded-full bg-surface-elevated/80 border border-border/60 backdrop-blur-md shadow-card-subtle">
+            {REACTION_EMOJIS.slice(0, 5).map((emoji) => (
               <button
                 key={emoji}
                 onClick={() => handleReaction(emoji)}
-                className="text-lg hover:scale-125 active:scale-90 transition-transform p-1"
+                className="text-xl sm:text-2xl p-1 hover:scale-125 active:scale-75 transition-transform"
                 title={`React with ${emoji}`}
               >
                 {emoji}
               </button>
             ))}
           </div>
+        </div>
 
-          <div className="w-px h-5 bg-border" />
+        {/* Bottom Utility Bar / Dock */}
+        <div className="w-full max-w-md sm:max-w-lg flex items-center justify-between px-2 pt-1 pb-1 sm:pb-0">
+          {/* Left: Volume with Mobile Popover & Desktop Inline Slider */}
+          <div ref={volumeRef} className="relative flex items-center gap-2">
+            <button
+              onClick={() => setShowMobileVolume((prev) => !prev)}
+              className="p-2 text-text-muted hover:text-text-primary rounded-full hover:bg-surface-elevated transition-colors"
+              title={isMuted ? 'Unmute' : 'Volume'}
+            >
+              {isMuted || volume === 0 ? (
+                <VolumeX className="w-4 h-4 text-rose-400" />
+              ) : (
+                <Volume2 className="w-4 h-4" />
+              )}
+            </button>
 
-          {/* Chat toggle */}
-          <button
-            onClick={() => setShowChat(true)}
-            className="p-2 text-text-muted hover:text-text-secondary transition-colors relative"
-            title="Chat"
-          >
-            <MessageCircle className="w-4 h-4" />
-            {chatMessages.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent-emerald rounded-full" />
+            {/* Mobile volume slider popover */}
+            {showMobileVolume && (
+              <div className="sm:hidden absolute bottom-full mb-2.5 left-0 p-2.5 rounded-2xl bg-surface-elevated/95 border border-border shadow-2xl backdrop-blur-md flex items-center gap-2.5 z-40 animate-in fade-in zoom-in-95">
+                <button
+                  onClick={toggleMute}
+                  className="text-text-muted hover:text-text-primary p-1"
+                >
+                  {isMuted ? (
+                    <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                  ) : (
+                    <Volume2 className="w-3.5 h-3.5" />
+                  )}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={isMuted ? 0 : volume}
+                  onChange={(e) => setVolume(parseFloat(e.target.value))}
+                  className="w-24 accent-accent-cream"
+                />
+                <span className="text-[10px] text-text-muted tabular-nums w-7 text-right">
+                  {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
+                </span>
+              </div>
             )}
+
+            {/* Desktop inline volume slider */}
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={isMuted ? 0 : volume}
+              onChange={(e) => setVolume(parseFloat(e.target.value))}
+              className="hidden sm:block w-24 sm:w-28 accent-accent-cream"
+            />
+          </div>
+
+          {/* Center: Add Audio Quick Action */}
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-elevated/70 border border-border/50 text-xs font-semibold text-text-secondary hover:text-accent-cream hover:border-accent-cream/40 transition active:scale-95 shadow-xs"
+            title="Upload and Add Track to Queue"
+          >
+            <Plus className="w-3.5 h-3.5 text-accent-cream" />
+            <span className="text-[11px] sm:text-xs">Add Audio</span>
           </button>
 
-          {/* Queue toggle */}
-          <button
-            onClick={() => setShowQueue(true)}
-            className="p-2 text-text-muted hover:text-text-secondary transition-colors"
-            title="Queue"
-          >
-            <ListMusic className="w-4 h-4" />
-          </button>
+          {/* Right: Chat & Queue with notification badges */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={() => setShowChat(true)}
+              className="relative p-2 text-text-muted hover:text-text-primary rounded-full hover:bg-surface-elevated transition-colors"
+              title="Chat"
+            >
+              <MessageCircle className="w-4 h-4" />
+              {chatMessages.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-accent-emerald text-bg text-[9px] font-bold flex items-center justify-center shadow">
+                  {chatMessages.length > 99 ? '99+' : chatMessages.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setShowQueue(true)}
+              className="relative p-2 text-text-muted hover:text-text-primary rounded-full hover:bg-surface-elevated transition-colors"
+              title="Queue"
+            >
+              <ListMusic className="w-4 h-4" />
+              {queue.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-accent-cream text-bg text-[9px] font-bold flex items-center justify-center shadow">
+                  {queue.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

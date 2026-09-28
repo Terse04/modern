@@ -60,51 +60,80 @@ export const OrbitingParticipants: React.FC<OrbitingParticipantsProps> = ({
 
   // Mobile / Tablet Row View
   if (isMobile) {
-    return (
-      <div className="w-full py-1.5 px-1">
-        <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 px-1">
-          {members.map((member) => (
-            <button
-              key={member.id}
-              onClick={() => setSelectedMember(member)}
-              type="button"
-              className="flex flex-col items-center gap-1 flex-shrink-0 group text-left focus:outline-none"
-            >
-              <div className="relative">
-                <img
-                  src={member.user.avatar}
-                  alt={member.user.name}
-                  className={`w-9 h-9 rounded-full object-cover ring-2 transition-all ${
-                    member.role === 'host'
-                      ? 'ring-accent-cream ring-offset-1 ring-offset-bg'
-                      : member.status === 'reacting'
-                      ? 'ring-accent-emerald ring-offset-1 ring-offset-bg animate-pulse'
-                      : 'ring-white/10 group-hover:ring-white/30'
-                  }`}
-                />
-                {/* Active reaction pill */}
-                {member.activeReaction && (
-                  <span className="absolute -top-1 -right-0.5 text-[10px] bg-surface-elevated rounded-full p-0.5 border border-border shadow-md">
-                    {member.activeReaction}
-                  </span>
-                )}
-                {/* Status Dot */}
-                <span
-                  className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ring-[1.5px] ring-bg ${
-                    member.role === 'host'
-                      ? 'bg-accent-cream'
-                      : member.status === 'joined'
-                      ? 'bg-blue-400'
-                      : 'bg-accent-emerald'
-                  }`}
-                />
-              </div>
+    if (members.length === 0) return null;
 
-              <span className="text-[10px] font-medium text-text-secondary truncate max-w-[55px]">
-                {member.user.name.split(' ')[0]}
-              </span>
-            </button>
-          ))}
+    return (
+      <div className="w-full flex justify-center py-1">
+        <div
+          className={`flex items-center gap-3 overflow-x-auto no-scrollbar max-w-full px-3 py-1 ${
+            members.length <= 4 ? 'justify-center' : 'justify-start'
+          }`}
+        >
+          {members.map((member) => {
+            const hasSpeech = Boolean(member.speechBubble?.text);
+            return (
+              <button
+                key={member.id}
+                onClick={() => setSelectedMember(member)}
+                type="button"
+                className="relative flex flex-col items-center gap-1 flex-shrink-0 group text-center focus:outline-none transition-transform active:scale-95 cursor-pointer"
+                title={`View ${member.user.name}'s profile`}
+              >
+                {/* Speech bubble if present on mobile */}
+                {hasSpeech && (
+                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap bg-surface-elevated/95 backdrop-blur-md text-text-primary text-[10px] font-medium px-2 py-0.5 rounded-full border border-border/80 shadow-md animate-float-slow pointer-events-none">
+                    <span>{member.speechBubble?.text}</span>
+                  </div>
+                )}
+
+                <div className="relative">
+                  <img
+                    src={member.user.avatar}
+                    alt={member.user.name}
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover ring-2 transition-all shadow-sm ${
+                      member.role === 'host'
+                        ? 'ring-accent-cream ring-offset-2 ring-offset-bg shadow-amber-500/10'
+                        : member.status === 'reacting'
+                        ? 'ring-accent-emerald ring-offset-2 ring-offset-bg animate-pulse'
+                        : 'ring-white/15 group-hover:ring-white/30'
+                    }`}
+                  />
+
+                  {/* Host Crown Icon */}
+                  {member.role === 'host' && (
+                    <span
+                      className="absolute -top-1.5 -left-1 flex items-center justify-center w-4 h-4 rounded-full bg-accent-cream text-bg shadow-sm"
+                      title="Room Host"
+                    >
+                      <Crown className="w-2.5 h-2.5 text-bg fill-current" />
+                    </span>
+                  )}
+
+                  {/* Active reaction pill */}
+                  {member.activeReaction && (
+                    <span className="absolute -top-1.5 -right-1 text-xs bg-surface-elevated/95 rounded-full px-1 py-0.5 border border-border shadow-md animate-bounce">
+                      {member.activeReaction}
+                    </span>
+                  )}
+
+                  {/* Status Dot */}
+                  <span
+                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-bg ${
+                      member.role === 'host'
+                        ? 'bg-accent-cream'
+                        : member.status === 'joined'
+                        ? 'bg-blue-400'
+                        : 'bg-accent-emerald'
+                    }`}
+                  />
+                </div>
+
+                <span className="text-[10px] font-medium text-text-secondary group-hover:text-text-primary transition-colors truncate max-w-[65px] text-center">
+                  {member.user.name.split(' ')[0]}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Member Preview Sheet */}

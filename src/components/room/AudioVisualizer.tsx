@@ -27,8 +27,8 @@ export const AuraModeSelector: React.FC<{
   onChange: (mode: VisualizerMode) => void;
 }> = ({ mode, onChange }) => {
   return (
-    <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-elevated/80 border border-border/60 shadow-sm backdrop-blur-md text-[10px] text-text-muted transition-all">
-      <span className="font-semibold uppercase tracking-wider text-[9px] mr-1 text-text-muted">Aura:</span>
+    <div className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-surface-elevated/80 border border-border/60 shadow-sm backdrop-blur-md text-[10px] text-text-muted transition-all">
+      <span className="font-semibold uppercase tracking-wider text-[9px] mr-1 text-text-muted hidden sm:inline">Aura:</span>
       <button
         onClick={() => onChange('spectrum')}
         className={`px-2 py-0.5 rounded-full transition-all flex items-center gap-1 ${
