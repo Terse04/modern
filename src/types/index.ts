@@ -171,8 +171,10 @@ export type SyncEventType =
   | 'QUEUE_REORDER'
   | 'PRESENCE_SYNC'
   | 'CHAT_MESSAGE'
-  | 'REACTION';
+  | 'REACTION'
+  | 'FORCE_RESYNC';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface SyncEvent<T = any> {
   id: string;
   roomId: string;

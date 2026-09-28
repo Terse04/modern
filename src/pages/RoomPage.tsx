@@ -13,8 +13,6 @@ import {
   ListMusic,
   ThumbsUp,
   Send,
-  ChevronUp,
-  ChevronDown,
   Trash2,
 } from 'lucide-react';
 import { Room, RoomMember, QueueItem, ChatMessage, FloatingReaction, Track } from '../types';
@@ -88,7 +86,6 @@ export const RoomPage: React.FC = () => {
     nextTrack,
     previousTrack,
     setIsHost,
-    broadcastHeartbeat,
     skipVotes,
     voteSkip,
   } = usePlaybackStore();
@@ -173,19 +170,12 @@ export const RoomPage: React.FC = () => {
     setIsHost(isHostUser);
   }, [isHostUser, setIsHost]);
 
-  // Host sync heartbeat: broadcasts timestamp and playback position every 2.5s while playing
+  // Host sync heartbeat removed as it's now handled by the server state
+  // We can just keep the effect signature without broadcastHeartbeat if needed,
+  // or remove it entirely. Let's remove the heartbeat interval.
   useEffect(() => {
-    if (!isHostUser || status !== 'playing' || !room) return;
-
-    // Broadcast immediately on state change
-    broadcastHeartbeat();
-
-    const interval = setInterval(() => {
-      broadcastHeartbeat();
-    }, 2500);
-
-    return () => clearInterval(interval);
-  }, [isHostUser, status, room, broadcastHeartbeat]);
+    // Handled authoritatively by room_playback now
+  }, [isHostUser, status, room]);
 
   // Init playback
   useEffect(() => {
@@ -292,14 +282,13 @@ export const RoomPage: React.FC = () => {
     addToast(`Added "${newTrack.title}" to room queue`, 'success');
   };
 
-  const handleMoveQueueItem = (fromIndex: number, direction: -1 | 1) => {
-    const toIndex = fromIndex + direction;
-    if (toIndex < 0 || toIndex >= queue.length) return;
-    const newQueue = [...queue];
-    const [moved] = newQueue.splice(fromIndex, 1);
-    newQueue.splice(toIndex, 0, moved);
-    setQueue(newQueue);
-    broadcastQueueUpdate(newQueue);
+  const handlePlayNext = async (itemId: string) => {
+    if (!roomId) return;
+    const revision = usePlaybackStore.getState().revision;
+    const { supabase, isSupabaseConfigured } = await import('../lib/supabaseClient');
+    if (isSupabaseConfigured && supabase) {
+      await supabase.rpc('play_next', { p_room_id: roomId, p_queue_item_id: itemId, p_expected_revision: revision });
+    }
   };
 
   const handleRemoveQueueItem = (itemId: string) => {
@@ -309,10 +298,30 @@ export const RoomPage: React.FC = () => {
     addToast('Removed from queue', 'info');
   };
 
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
   if (loading || !room) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
         <div className="w-10 h-10 border-3 border-accent-cream border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] text-center px-4 bg-bg">
+        <h2 className="text-2xl font-bold text-text-primary mb-2 font-display">Join the Party</h2>
+        <p className="text-text-secondary mb-6 max-w-sm">
+          Sign in to join live rooms, listen along with friends, and add tracks to the queue.
+        </p>
+        <button
+          onClick={() => setShowAuth(true)}
+          className="px-6 py-2.5 bg-accent-cream text-bg rounded-full font-semibold hover:bg-accent-creamHover transition-colors shadow-glow-subtle"
+        >
+          Sign In
+        </button>
+        <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
       </div>
     );
   }
@@ -619,7 +628,7 @@ export const RoomPage: React.FC = () => {
           </div>
 
           <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
-            {queue.map((item, idx) => (
+            {queue.map((item) => (
               <div
                 key={item.id}
                 className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
@@ -657,21 +666,11 @@ export const RoomPage: React.FC = () => {
                   <div className="flex items-center gap-0.5">
                     <button
                       type="button"
-                      onClick={() => handleMoveQueueItem(idx, -1)}
-                      disabled={idx === 0}
-                      className="p-1 text-text-muted hover:text-text-primary disabled:opacity-20 transition"
-                      title="Move Up"
+                      onClick={() => handlePlayNext(item.id)}
+                      className="p-1 text-text-muted hover:text-accent-cream transition"
+                      title="Play Next"
                     >
-                      <ChevronUp className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleMoveQueueItem(idx, 1)}
-                      disabled={idx === queue.length - 1}
-                      className="p-1 text-text-muted hover:text-text-primary disabled:opacity-20 transition"
-                      title="Move Down"
-                    >
-                      <ChevronDown className="w-4 h-4" />
+                      <Play className="w-4 h-4" />
                     </button>
                     <button
                       type="button"

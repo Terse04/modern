@@ -108,7 +108,12 @@ export const storageService = {
     if (isSupabaseConfigured && supabase) {
       try {
         const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const storagePath = `uploads/${Date.now()}_${cleanName}`;
+        
+        const { data: sessionData } = await supabase.auth.getSession();
+        const { data: profileData } = await supabase.from('profiles').select('id').eq('auth_user_id', sessionData.session?.user?.id || '').single();
+        const profileId = profileData?.id || 'guest';
+        
+        const storagePath = `${profileId}/${Date.now()}_${cleanName}`;
 
         onProgress?.(60);
         // Try direct upload first
@@ -120,8 +125,7 @@ export const storageService = {
           });
 
         if (!uploadErr) {
-          const { data: urlData } = supabase.storage.from('tracks').getPublicUrl(storagePath);
-          audioUrl = urlData.publicUrl;
+          audioUrl = storagePath;
         } else {
           // If direct upload failed due to RLS, request a signed upload URL from serverless API
           try {
@@ -133,8 +137,7 @@ export const storageService = {
                   .from('tracks')
                   .uploadToSignedUrl(storagePath, signData.token, file);
                 if (!signUpErr) {
-                  const { data: pubData } = supabase.storage.from('tracks').getPublicUrl(storagePath);
-                  audioUrl = pubData.publicUrl;
+                  audioUrl = storagePath;
                 }
               }
             }
@@ -146,7 +149,7 @@ export const storageService = {
         // Upload custom artwork if provided
         if (artworkFile) {
           const artExt = artworkFile.name.split('.').pop() || 'jpg';
-          const artPath = `artwork/${Date.now()}_art.${artExt}`;
+          const artPath = `artwork/${profileId}_${Date.now()}_art.${artExt}`;
           const { error: artErr } = await supabase.storage.from('tracks').upload(artPath, artworkFile, {
             cacheControl: '3600',
             upsert: true,
@@ -230,7 +233,9 @@ export const storageService = {
       const existingStr = localStorage.getItem(LOCAL_TRACKS_KEY);
       const existing: Track[] = existingStr ? JSON.parse(existingStr) : [];
       localStorage.setItem(LOCAL_TRACKS_KEY, JSON.stringify([newTrack, ...existing]));
-    } catch (_) {}
+    } catch (e) {
+      console.warn('Failed to save track to local storage', e);
+    }
 
     onProgress?.(100);
     return newTrack;

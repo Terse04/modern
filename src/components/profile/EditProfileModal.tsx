@@ -114,7 +114,39 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     const reader = new FileReader();
     reader.onload = (event) => {
       if (typeof event.target?.result === 'string') {
-        setSelectedAvatar(event.target.result);
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 512;
+          
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Output as WEBP for smaller size, max 1.5MB equivalent
+            const dataUrl = canvas.toDataURL('image/webp', 0.85);
+            setSelectedAvatar(dataUrl);
+          } else {
+            setSelectedAvatar(event.target!.result as string);
+          }
+        };
+        img.onerror = () => {
+          setUploadError('Failed to process image.');
+        };
+        img.src = event.target.result;
       }
     };
     reader.readAsDataURL(file);

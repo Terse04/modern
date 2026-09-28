@@ -22,6 +22,7 @@ export class AudioEngine {
   private isNudging: boolean = false;
   private synthCtx: AudioContext | null = null;
   private synthOscs: OscillatorNode[] = [];
+  private synthMasterGain: GainNode | null = null;
   private isUsingSynthFallback: boolean = false;
 
   // Web Audio Visualizer pipeline
@@ -87,7 +88,7 @@ export class AudioEngine {
     });
   }
 
-  loadTrack(url: string, autoPlay: boolean = false) {
+  async loadTrack(url: string, autoPlay: boolean = false): Promise<void> {
     if (this.currentUrl === url && this.audio.src) {
       if (autoPlay) this.play();
       return;
@@ -95,8 +96,43 @@ export class AudioEngine {
 
     this.currentUrl = url;
     this.stopSynthFallback();
-    this.audio.src = url;
-    this.audio.load();
+    
+    let finalUrl = url;
+    if (url && !url.startsWith('http') && !url.startsWith('blob:') && !url.startsWith('data:')) {
+      try {
+        const { supabase } = await import('./supabaseClient');
+        if (supabase) {
+          const { data } = await supabase.storage.from('tracks').createSignedUrl(url, 3600);
+          if (data?.signedUrl) {
+            finalUrl = data.signedUrl;
+          }
+        }
+      } catch (e) {
+        console.warn('[AudioEngine] Could not get signed url for', url, e);
+      }
+    }
+
+    this.audio.src = finalUrl;
+    
+    const canPlayPromise = new Promise<void>((resolve) => {
+      const onCanPlay = () => {
+        cleanup();
+        resolve();
+      };
+      const onError = () => {
+        cleanup();
+        resolve(); // fallback will trigger via error listener
+      };
+      const cleanup = () => {
+        this.audio.removeEventListener('canplay', onCanPlay);
+        this.audio.removeEventListener('error', onError);
+      };
+      this.audio.addEventListener('canplay', onCanPlay);
+      this.audio.addEventListener('error', onError);
+      this.audio.load();
+    });
+
+    await canPlayPromise;
 
     if (autoPlay) {
       this.play();
@@ -111,7 +147,7 @@ export class AudioEngine {
       return;
     }
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
       if (!this.audioCtx) {
         this.audioCtx = new AudioCtx();
@@ -138,20 +174,27 @@ export class AudioEngine {
     try {
       this.initAnalyser();
       if (this.isUsingSynthFallback) {
+        if (this.synthCtx && this.synthMasterGain) {
+          this.synthCtx.resume().catch(() => {});
+          this.synthMasterGain.gain.setTargetAtTime(1, this.synthCtx.currentTime, 0.1);
+        }
         this.events.onStatusChange?.('playing');
         return;
       }
       await this.audio.play();
       this.events.onStatusChange?.('playing');
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Browser autoplay restriction or file error
-      console.warn('[AudioEngine] Playback prevented or error:', err.message);
+      console.warn('[AudioEngine] Playback prevented or error:', (err as Error).message);
       this.startSynthFallback();
     }
   }
 
   pause() {
     if (this.isUsingSynthFallback) {
+      if (this.synthCtx && this.synthMasterGain) {
+        this.synthMasterGain.gain.setTargetAtTime(0, this.synthCtx.currentTime, 0.1);
+      }
       this.events.onStatusChange?.('paused');
       return;
     }
@@ -161,7 +204,7 @@ export class AudioEngine {
 
   getFrequencyData(): Uint8Array {
     if (this.analyserNode && this.frequencyData && !this.audio.paused) {
-      this.analyserNode.getByteFrequencyData(this.frequencyData);
+      this.analyserNode.getByteFrequencyData(this.frequencyData as unknown as Uint8Array<ArrayBuffer>);
       return this.frequencyData;
     }
     return new Uint8Array(64);
@@ -236,11 +279,6 @@ export class AudioEngine {
     return this.audio.duration || 0;
   }
 
-  /**
-   * Drift Correction:
-   * If moderate drift, nudges rate slightly (e.g., 1.04x or 0.96x) so client seamlessly catches up
-   * without hearing a jump.
-   */
   applyDriftCorrection(action: 'none' | 'nudge' | 'seek', targetSeconds?: number, driftMs?: number) {
     if (action === 'none') {
       if (this.isNudging) {
@@ -251,10 +289,10 @@ export class AudioEngine {
     }
 
     if (action === 'nudge' && driftMs !== undefined) {
-      // If local is behind target (driftMs < 0), speed up slightly (1.04x)
-      // If local is ahead of target (driftMs > 0), slow down slightly (0.96x)
-      const newRate = driftMs < 0 ? 1.04 : 0.96;
-      this.audio.playbackRate = newRate;
+      const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
+      const targetRate = 1 + clamp(-driftMs / 4000, -0.03, 0.03);
+      this.audio.preservesPitch = true;
+      this.audio.playbackRate = targetRate;
       this.isNudging = true;
     } else if (action === 'seek' && targetSeconds !== undefined) {
       this.seek(targetSeconds);
@@ -267,10 +305,14 @@ export class AudioEngine {
   private startSynthFallback() {
     if (this.synthCtx) return;
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
       this.synthCtx = new AudioCtx();
       this.isUsingSynthFallback = true;
+
+      this.synthMasterGain = this.synthCtx.createGain();
+      this.synthMasterGain.gain.setValueAtTime(1, this.synthCtx.currentTime);
+      this.synthMasterGain.connect(this.synthCtx.destination);
 
       // Soft ambient chord (A minor 9)
       const freqs = [220, 261.63, 329.63, 392.0];
@@ -281,7 +323,7 @@ export class AudioEngine {
         osc.frequency.setValueAtTime(f, this.synthCtx!.currentTime);
         gain.gain.setValueAtTime(0.04, this.synthCtx!.currentTime);
         osc.connect(gain);
-        gain.connect(this.synthCtx!.destination);
+        gain.connect(this.synthMasterGain!);
         osc.start();
         return osc;
       });
@@ -299,9 +341,15 @@ export class AudioEngine {
         try {
           o.stop();
           o.disconnect();
-        } catch (_) {}
+        } catch (e) {
+          // ignore error if already stopped
+        }
       });
       this.synthOscs = [];
+    }
+    if (this.synthMasterGain) {
+      this.synthMasterGain.disconnect();
+      this.synthMasterGain = null;
     }
     if (this.synthCtx) {
       this.synthCtx.close().catch(() => {});

@@ -42,11 +42,43 @@ interface AuthState {
   clearError: () => void;
 }
 
+// Ensure usePlaybackStore is imported at the top, or required here to avoid circular dep issues.
+function resetPlaybackStore() {
+  try {
+    const { usePlaybackStore } = require('./usePlaybackStore');
+    usePlaybackStore.getState().resetPlaybackState();
+  } catch (e) {
+    console.warn('Failed to reset playback state:', e);
+  }
+}
+
+function resetRealtimeStore() {
+  try {
+    const { realtimeService } = require('../services/realtimeService');
+    realtimeService.leaveChannel();
+  } catch (e) {
+    console.warn('Failed to reset realtime state:', e);
+  }
+}
+
 function getStoredUser(): User {
   if (typeof window === 'undefined') return ANONYMOUS_GUEST;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Strip privileged keys
+      return {
+        id: parsed.id,
+        username: parsed.username,
+        name: parsed.name,
+        avatar: parsed.avatar,
+        isAdmin: false,
+        isBanned: false,
+        isHost: false,
+        role: 'listener',
+      };
+    }
   } catch (err) {
     console.warn('Failed to parse stored user:', err);
   }
@@ -248,13 +280,22 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   switchProfile: (user: User) => {
+    resetPlaybackStore();
+    resetRealtimeStore();
     saveStoredUser(user);
     set({ currentUser: user, authError: null });
   },
 
   updateCurrentUser: (updates: Partial<User>) => {
+    // Reject privileged keys
+    const safeUpdates = { ...updates };
+    delete safeUpdates.isAdmin;
+    delete safeUpdates.isBanned;
+    delete safeUpdates.isHost;
+    delete safeUpdates.role;
+    
     set((state) => {
-      const updated: User = { ...state.currentUser, ...updates };
+      const updated: User = { ...state.currentUser, ...safeUpdates };
       saveStoredUser(updated);
       return { currentUser: updated };
     });
@@ -466,6 +507,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (isSupabaseConfigured && supabase) {
       await supabase.auth.signOut();
     }
+    resetPlaybackStore();
+    resetRealtimeStore();
     saveStoredUser(ANONYMOUS_GUEST);
     set({
       currentUser: ANONYMOUS_GUEST,

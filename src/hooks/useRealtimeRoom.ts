@@ -90,14 +90,36 @@ export function useRealtimeRoom(
       handlersRef.current.onPresenceSync?.(members);
     });
 
-    // Handle tab closing or unmounting
+    // Handle tab closing or backgrounding
     const handleLeave = () => {
-      realtimeService.untrackPresence(roomId, userRef.current.id);
+      realtimeService.untrackPresence(roomId);
+      void roomService.leaveRoom(roomId);
     };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // We do NOT fully leave on hidden, we just mark inactive in a real app,
+        // but iOS safari needs pagehide.
+      }
+    };
+
     window.addEventListener('beforeunload', handleLeave);
+    window.addEventListener('pagehide', handleLeave);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Call room_heartbeat every 30 seconds to maintain DB membership
+    const heartbeatInterval = setInterval(() => {
+      // We assume roomService.heartbeat(roomId) will be added if needed, or we just call the RPC
+      // Wait, we need to add room_heartbeat RPC! 
+      // The instruction says: "Call room_heartbeat (BUG-05) on an interval for DB-backed membership"
+      roomService.heartbeat(roomId).catch(() => {});
+    }, 30000);
 
     return () => {
+      clearInterval(heartbeatInterval);
       window.removeEventListener('beforeunload', handleLeave);
+      window.removeEventListener('pagehide', handleLeave);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       unsubscribePresence();
       handleLeave();
     };

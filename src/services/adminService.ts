@@ -51,7 +51,23 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
 
 export const adminService = {
   // ─── Platform Settings ──────────────────────────────────────────────────
-  getPlatformSettings(): PlatformSettings {
+  async getPlatformSettings(): Promise<PlatformSettings> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('platform_settings').select('*').eq('id', 1).single();
+      if (!error && data) {
+        return {
+          guestDailyRoomLimit: data.guest_daily_room_limit,
+          maxListenersPerRoom: data.max_listeners_per_room,
+          availableGenres: data.available_genres,
+          availableTags: data.available_tags,
+          allowedBitrates: data.allowed_bitrates,
+          allowGuestCreation: data.allow_guest_creation,
+          maintenanceMode: data.maintenance_mode,
+        };
+      }
+    }
+    
+    // Fallback to local storage for demo
     if (typeof window === 'undefined') return DEFAULT_PLATFORM_SETTINGS;
     try {
       const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -62,9 +78,27 @@ export const adminService = {
     return DEFAULT_PLATFORM_SETTINGS;
   },
 
-  updatePlatformSettings(settings: Partial<PlatformSettings>): PlatformSettings {
-    const current = this.getPlatformSettings();
+  async updatePlatformSettings(settings: Partial<PlatformSettings>): Promise<PlatformSettings> {
+    const current = await this.getPlatformSettings();
     const updated = { ...current, ...settings };
+
+    if (isSupabaseConfigured && supabase) {
+      const payload = {
+        guest_daily_room_limit: updated.guestDailyRoomLimit,
+        max_listeners_per_room: updated.maxListenersPerRoom,
+        available_genres: updated.availableGenres,
+        available_tags: updated.availableTags,
+        allowed_bitrates: updated.allowedBitrates,
+        allow_guest_creation: updated.allowGuestCreation,
+        maintenance_mode: updated.maintenanceMode,
+      };
+      
+      const { error } = await supabase.from('platform_settings').update(payload).eq('id', 1);
+      if (error) {
+        console.error('Failed to update platform settings in DB:', error);
+      }
+    }
+
     if (typeof window !== 'undefined') {
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
     }
@@ -101,23 +135,28 @@ export const adminService = {
 
   async updateUser(userId: string, updates: Partial<User>): Promise<boolean> {
     if (isSupabaseConfigured && supabase) {
-      const payload: any = {};
-      if (updates.name !== undefined) payload.name = updates.name;
-      if (updates.avatar !== undefined) payload.avatar = updates.avatar;
-      if (updates.isAdmin !== undefined) payload.is_admin = updates.isAdmin;
-      if (updates.isBanned !== undefined) payload.is_banned = updates.isBanned;
-      if (updates.role !== undefined) payload.role = updates.role;
+      const { error } = await supabase.rpc('admin_set_user_flags', {
+        p_user_id: userId,
+        p_is_banned: updates.isBanned !== undefined ? updates.isBanned : null,
+        p_role: updates.role !== undefined ? updates.role : null,
+        p_is_admin: updates.isAdmin !== undefined ? updates.isAdmin : null
+      });
 
-      const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
-      return !error;
+      if (error) {
+        console.error('[adminService] updateUser rpc error:', error);
+        throw new Error(error.message);
+      }
+      return true;
     }
     return true;
   },
 
   async deleteUser(userId: string): Promise<boolean> {
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.from('profiles').delete().eq('id', userId);
-      return !error;
+      const { error, data } = await supabase.from('profiles').delete().eq('id', userId).select();
+      if (error) throw new Error(error.message);
+      if (!data || data.length === 0) throw new Error('User not found or permission denied');
+      return true;
     }
     return true;
   },
@@ -165,22 +204,28 @@ export const adminService = {
 
   async toggleRoomLive(roomId: string, isLive: boolean): Promise<boolean> {
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from('rooms')
         .update({ is_live: isLive })
-        .eq('id', roomId);
-      return !error;
+        .eq('id', roomId)
+        .select();
+      if (error) throw new Error(error.message);
+      if (!data || data.length === 0) throw new Error('Room not found or permission denied');
+      return true;
     }
     return true;
   },
 
   async updateRoomVisibility(roomId: string, visibility: VisibilityType): Promise<boolean> {
     if (isSupabaseConfigured && supabase) {
-      const { data: room } = await supabase.from('rooms').select('settings').eq('id', roomId).single();
+      const { data: room, error: fetchErr } = await supabase.from('rooms').select('settings').eq('id', roomId).single();
+      if (fetchErr) throw new Error(fetchErr.message);
       const settings = room?.settings || {};
       settings.visibility = visibility;
-      const { error } = await supabase.from('rooms').update({ settings }).eq('id', roomId);
-      return !error;
+      const { error, data } = await supabase.from('rooms').update({ settings }).eq('id', roomId).select();
+      if (error) throw new Error(error.message);
+      if (!data || data.length === 0) throw new Error('Room not found or permission denied');
+      return true;
     }
     return true;
   },
@@ -198,8 +243,10 @@ export const adminService = {
 
     // Fallback: direct Supabase delete
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.from('rooms').delete().eq('id', roomId);
-      return !error;
+      const { error, data } = await supabase.from('rooms').delete().eq('id', roomId).select();
+      if (error) throw new Error(error.message);
+      if (!data || data.length === 0) throw new Error('Room not found or permission denied');
+      return true;
     }
     return true;
   },
@@ -295,8 +342,10 @@ export const adminService = {
 
     // Fallback: direct Supabase delete
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.from('tracks').delete().eq('id', trackId);
-      return !error;
+      const { error, data } = await supabase.from('tracks').delete().eq('id', trackId).select();
+      if (error) throw new Error(error.message);
+      if (!data || data.length === 0) throw new Error('Track not found or permission denied');
+      return true;
     }
     return true;
   },

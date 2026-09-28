@@ -1,4 +1,4 @@
-import { Room, RoomMember, QueueItem, User, Track } from '../types';
+import { Room, RoomMember, QueueItem, User, Track, RoomSettings } from '../types';
 import { CURATED_OPEN_TRACKS } from './openMusicService';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
@@ -24,6 +24,7 @@ export const roomService = {
         .order('listener_count', { ascending: false });
 
       if (!error && data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return data.map((r: any) => ({
           id: r.id,
           name: r.name,
@@ -124,9 +125,6 @@ export const roomService = {
       .replace(/^-+|-+$/g, '') || `room-${Date.now().toString(36)}`;
 
     const hostUser = data.host || DEFAULT_HOST_FALLBACK;
-    const isUuid = (val?: string) =>
-      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
-    const dbHostId = isUuid(hostUser?.id) ? hostUser.id : null;
 
     const initialTrack = CURATED_OPEN_TRACKS[0];
     const newRoom: Room = {
@@ -184,63 +182,77 @@ export const roomService = {
         }, { onConflict: 'id' });
       }
 
-      const { error: insertErr } = await supabase.from('rooms').insert({
-        id: newRoom.id,
-        name: newRoom.name,
-        description: newRoom.description,
-        artwork: newRoom.artwork,
-        host_id: dbHostId,
-        is_live: true,
-        listener_count: 1,
-        current_track_id: initialTrack.id,
-        settings: newRoom.settings,
-      });
+      const { data: sessionData } = await supabase.auth.getSession();
+      const hasSession = !!sessionData.session;
+      let newHostId = hostUser.id;
 
-      if (insertErr) {
-        console.error('[roomService] Supabase insert room error:', insertErr);
-        // Fallback retry with null host_id if foreign key was rejected
-        if (dbHostId) {
-          await supabase.from('rooms').insert({
-            id: newRoom.id,
-            name: newRoom.name,
-            description: newRoom.description,
-            artwork: newRoom.artwork,
-            host_id: null,
-            is_live: true,
-            listener_count: 1,
-            current_track_id: initialTrack.id,
-            settings: newRoom.settings,
-          });
+      if (hasSession) {
+        const { error: insertErr } = await supabase.from('rooms').insert({
+          id: newRoom.id,
+          name: newRoom.name,
+          description: newRoom.description,
+          artwork: newRoom.artwork,
+          host_id: newHostId,
+          is_live: true,
+          listener_count: 1,
+          current_track_id: initialTrack.id,
+          settings: newRoom.settings,
+        });
+
+        if (insertErr) {
+          console.error('[roomService] Supabase insert room error:', insertErr);
+          throw new Error(insertErr.message);
         }
-      }
-    }
+      } else {
+        let guestFingerprint = localStorage.getItem('modern_guest_fingerprint');
+        if (!guestFingerprint) {
+          guestFingerprint = `gfp_${Math.random().toString(36).substring(2, 12)}_${Date.now()}`;
+          localStorage.setItem('modern_guest_fingerprint', guestFingerprint);
+        }
 
-    // Add to demo store with actual room host
-    roomsStore = [newRoom, ...roomsStore];
-    membersStore[newRoom.id] = [
-      {
-        id: `mem_${newRoom.host.id}`,
-        roomId: newRoom.id,
-        user: newRoom.host,
-        role: 'host',
-        status: 'host',
-        statusText: 'Host',
-        joinedAt: new Date().toISOString(),
-        isSynced: true,
-        driftMs: 0,
-      },
-    ];
-    queueStore[newRoom.id] = [
-      {
-        id: `q_${Date.now()}`,
-        roomId: newRoom.id,
-        track: initialTrack,
-        addedBy: newRoom.host,
-        addedAt: new Date().toISOString(),
-        votes: 1,
-        hasVoted: true,
-      },
-    ];
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('create_room_guest', {
+          p_room_id: newRoom.id,
+          p_name: newRoom.name,
+          p_description: newRoom.description || '',
+          p_client_fingerprint: guestFingerprint
+        });
+
+        if (rpcErr) {
+          console.error('[roomService] Guest room creation error:', rpcErr);
+          throw new Error(rpcErr.message);
+        }
+
+        newHostId = (rpcData as { profile_id: string }).profile_id;
+        newRoom.host.id = newHostId;
+      }
+    } else {
+      // Add to demo store only when not configured
+      roomsStore = [newRoom, ...roomsStore];
+      membersStore[newRoom.id] = [
+        {
+          id: `mem_${newRoom.host.id}`,
+          roomId: newRoom.id,
+          user: newRoom.host,
+          role: 'host',
+          status: 'host',
+          statusText: 'Host',
+          joinedAt: new Date().toISOString(),
+          isSynced: true,
+          driftMs: 0,
+        },
+      ];
+      queueStore[newRoom.id] = [
+        {
+          id: `q_${Date.now()}`,
+          roomId: newRoom.id,
+          track: initialTrack,
+          addedBy: newRoom.host,
+          addedAt: new Date().toISOString(),
+          votes: 1,
+          hasVoted: true,
+        },
+      ];
+    }
 
     return newRoom;
   },
@@ -251,11 +263,11 @@ export const roomService = {
       name?: string;
       description?: string;
       artwork?: string;
-      settings?: any;
+      settings?: Partial<RoomSettings>;
     }
   ): Promise<void> {
     if (isSupabaseConfigured && supabase) {
-      const payload: Record<string, any> = {};
+      const payload: Record<string, unknown> = {};
       if (updates.name !== undefined) payload.name = updates.name;
       if (updates.description !== undefined) payload.description = updates.description;
       if (updates.artwork !== undefined) payload.artwork = updates.artwork;
@@ -271,7 +283,7 @@ export const roomService = {
             ...(updates.name ? { name: updates.name } : {}),
             ...(updates.description !== undefined ? { description: updates.description } : {}),
             ...(updates.artwork ? { artwork: updates.artwork } : {}),
-            ...(updates.settings ? { settings: updates.settings } : {}),
+            ...(updates.settings ? { settings: { ...r.settings, ...updates.settings } as RoomSettings } : {}),
           }
         : r
     );
@@ -284,6 +296,7 @@ export const roomService = {
         .select('*, user:profiles(*)')
         .eq('room_id', roomId);
       if (!error && data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return data.map((m: any) => ({
           id: m.id,
           roomId: m.room_id,
@@ -343,37 +356,48 @@ export const roomService = {
       driftMs: Math.floor(Math.random() * 20) - 10,
     };
 
-    const isUuid = (val?: string) =>
-      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+    if (isSupabaseConfigured && supabase) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        const { error } = await supabase.rpc('join_room', { p_room_id: roomId });
+        if (error) {
+          console.warn('[roomService] joinRoom rpc error:', error);
+          throw new Error(error.message);
+        }
+      }
+    } else {
+      if (!membersStore[roomId]) {
+        membersStore[roomId] = [];
+      }
+      membersStore[roomId] = [newMember, ...membersStore[roomId]];
 
-    if (isSupabaseConfigured && supabase && isUuid(user?.id)) {
-      try {
-        await supabase.from('room_members').upsert({
-          id: newMember.id,
-          room_id: roomId,
-          user_id: user.id,
-          role: newMember.role,
-          status: newMember.status,
-          status_text: newMember.statusText,
-          drift_ms: newMember.driftMs,
-        });
-      } catch (err) {
-        console.warn('[roomService] joinRoom member upsert skipped:', err);
+      // Increment room listener count
+      const r = roomsStore.find((room) => room.id === roomId);
+      if (r) {
+        r.listenerCount += 1;
       }
     }
 
-    if (!membersStore[roomId]) {
-      membersStore[roomId] = [];
-    }
-    membersStore[roomId] = [newMember, ...membersStore[roomId]];
-
-    // Increment room listener count
-    const r = roomsStore.find((room) => room.id === roomId);
-    if (r) {
-      r.listenerCount += 1;
-    }
-
     return newMember;
+  },
+
+  async leaveRoom(roomId: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        await supabase.rpc('leave_room', { p_room_id: roomId });
+      }
+    }
+  },
+
+  async heartbeat(roomId: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.rpc('room_heartbeat', { p_room_id: roomId });
+      } catch (err) {
+        // ignore
+      }
+    }
   },
 
   async getRoomQueue(roomId: string): Promise<QueueItem[]> {
@@ -385,6 +409,7 @@ export const roomService = {
         .order('votes', { ascending: false });
 
       if (!error && data && data.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return data.map((q: any) => ({
           id: q.id,
           roomId: q.room_id,
@@ -462,6 +487,37 @@ export const roomService = {
   },
 
   async voteQueueItem(roomId: string, queueItemId: string): Promise<QueueItem | null> {
+    if (isSupabaseConfigured && supabase) {
+      const { data: hasVoted, error } = await supabase.rpc('toggle_queue_vote', {
+        p_queue_item_id: queueItemId
+      });
+      if (error) {
+        console.error('[roomService] voteQueueItem rpc error:', error);
+        return null;
+      }
+
+      // Fetch the updated queue item to get the real vote count
+      const { data: q, error: fetchErr } = await supabase
+        .from('queue_items')
+        .select('*, track:tracks(*), added_by:profiles(*)')
+        .eq('id', queueItemId)
+        .single();
+
+      if (!fetchErr && q) {
+        return {
+          id: q.id,
+          roomId: q.room_id,
+          track: q.track,
+          addedBy: q.added_by,
+          addedAt: q.added_at,
+          votes: q.votes,
+          hasVoted: hasVoted,
+        };
+      }
+      return null;
+    }
+
+    // fallback for local mode
     const list = queueStore[roomId];
     if (!list) return null;
     const item = list.find((i) => i.id === queueItemId);
@@ -473,13 +529,6 @@ export const roomService = {
     } else {
       item.votes += 1;
       item.hasVoted = true;
-    }
-
-    if (isSupabaseConfigured && supabase) {
-      await supabase
-        .from('queue_items')
-        .update({ votes: item.votes })
-        .eq('id', queueItemId);
     }
 
     // Sort queue by votes descending, keeping first (currently playing) if applicable

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Radio,
@@ -17,7 +17,7 @@ import { Button } from '../components/ui/Button';
 import { useToastStore } from '../components/ui/Toast';
 import { roomService } from '../services/roomService';
 import { roomLimitService } from '../services/roomLimitService';
-import { adminService } from '../services/adminService';
+import { adminService, DEFAULT_PLATFORM_SETTINGS } from '../services/adminService';
 import { useAuthStore } from '../stores/useAuthStore';
 import { VisibilityType, PlaybackPermission } from '../types';
 
@@ -59,7 +59,12 @@ export const CreateRoomPage: React.FC = () => {
   const addToast = useToastStore((s) => s.addToast);
   const { currentUser, isAuthenticated } = useAuthStore();
 
-  const platformSettings = adminService.getPlatformSettings();
+  const [platformSettings, setPlatformSettings] = useState(DEFAULT_PLATFORM_SETTINGS);
+  
+  useEffect(() => {
+    adminService.getPlatformSettings().then(setPlatformSettings);
+  }, []);
+
   const usage = roomLimitService.getGuestDailyUsage(
     isAuthenticated,
     platformSettings.guestDailyRoomLimit
@@ -149,8 +154,9 @@ export const CreateRoomPage: React.FC = () => {
 
       addToast(`Room "${room.name}" created!`, 'success');
       navigate(`/room/${room.id}`);
-    } catch {
-      addToast('Failed to create room', 'error');
+    } catch (err: unknown) {
+      const e = err as Error;
+      addToast(e?.message || 'Failed to create room', 'error');
     } finally {
       setIsCreating(false);
     }

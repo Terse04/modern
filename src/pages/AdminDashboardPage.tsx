@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DEFAULT_PLATFORM_SETTINGS } from '../services/adminService';
 import {
   Users,
   Radio,
@@ -34,11 +35,11 @@ export const AdminDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // Data states
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<Record<string, number | boolean> | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [settings, setSettings] = useState<PlatformSettings>(adminService.getPlatformSettings());
+  const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
 
   // Search & filter
   const [userSearch, setUserSearch] = useState('');
@@ -69,7 +70,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
       const [allStats, allUsers, allRooms, allTracks] = await Promise.all([
@@ -98,18 +99,18 @@ export const AdminDashboardPage: React.FC = () => {
         setTracks(allTracks);
       }
 
-      setSettings(adminService.getPlatformSettings());
+      setSettings(await adminService.getPlatformSettings());
     } catch (err) {
       console.error('Failed to load admin data:', err);
       addToast('Failed to load admin data', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Stop preview audio when leaving
   useEffect(() => {
@@ -229,8 +230,8 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
   // Settings Actions
-  const handleSaveSettings = () => {
-    adminService.updatePlatformSettings(settings);
+  const handleSaveSettings = async () => {
+    await adminService.updatePlatformSettings(settings);
     addToast('Platform configurations updated!', 'success');
   };
 
@@ -329,7 +330,7 @@ export const AdminDashboardPage: React.FC = () => {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'overview' | 'users' | 'rooms' | 'tracks' | 'settings')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 isActive
                   ? 'bg-accent-cream text-bg shadow-sm'
@@ -595,7 +596,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <select
                       value={r.settings.visibility}
-                      onChange={(e) => handleChangeRoomVisibility(r.id, e.target.value as any)}
+                      onChange={(e) => handleChangeRoomVisibility(r.id, e.target.value as 'public' | 'unlisted' | 'private')}
                       className="bg-surface border border-border rounded-lg px-2 py-1 text-[11px] text-text-secondary focus:outline-none"
                     >
                       <option value="public">Public</option>
