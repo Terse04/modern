@@ -339,9 +339,9 @@ export const RoomPage: React.FC = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-between relative z-10 px-4 py-1 sm:py-2 max-w-5xl mx-auto w-full min-h-0">
+      <div className="flex-1 flex flex-col items-center justify-start relative z-10 px-4 pt-2 pb-3 sm:pt-3 sm:pb-4 max-w-5xl mx-auto w-full min-h-0 gap-3 sm:gap-4 overflow-y-auto">
         {/* Center Stage: Artwork + Orbiting Participants */}
-        <div className="relative w-full max-w-[170px] sm:max-w-[210px] md:max-w-[245px] lg:max-w-[275px] mx-auto flex-shrink-0 my-1">
+        <div className="relative w-full max-w-[200px] sm:max-w-[230px] md:max-w-[260px] lg:max-w-[290px] mx-auto flex-shrink-0">
           {/* Orbiting Participants (Desktop) */}
           <OrbitingParticipants members={members} isMobile={false} />
 
@@ -363,12 +363,12 @@ export const RoomPage: React.FC = () => {
         </div>
 
         {/* Mobile Participants Row */}
-        <div className="md:hidden w-full flex-shrink-0">
+        <div className="md:hidden w-full flex-shrink-0 -mt-1">
           <OrbitingParticipants members={members} isMobile={true} />
         </div>
 
         {/* Bottom Stage: Track Info + Aura Selector + Progress + Controls */}
-        <div className="w-full flex flex-col items-center gap-1.5 sm:gap-2 flex-shrink-0 pb-1">
+        <div className="w-full flex flex-col items-center gap-2 sm:gap-2.5 flex-shrink-0 pb-safe">
           {/* Track Info */}
           <div className="text-center space-y-0.5">
             <h2 className="text-lg sm:text-xl font-bold tracking-tight text-text-primary font-display">

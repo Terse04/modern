@@ -20,35 +20,13 @@ export const Navbar: React.FC = () => {
   ];
 
   const [showNotifications, setShowNotifications] = useState(false);
-  const [hasUnread, setHasUnread] = useState(true);
+  const [hasUnread, setHasUnread] = useState(false);
 
-  const notifications = [
-    {
-      id: 'n1',
-      title: 'Late Night Coding',
-      text: 'Alex is broadcasting ambient synth in sync',
-      time: '2m ago',
-      href: '/room/late-night-coding',
-    },
-    {
-      id: 'n2',
-      title: 'Sound Identity',
-      text: 'Your account is connected to Supabase Realtime',
-      time: '15m ago',
-      href: '/profile',
-    },
-    {
-      id: 'n3',
-      title: 'Listening Circle',
-      text: 'Elena and Marcus joined a room',
-      time: '45m ago',
-      href: '/rooms',
-    },
-  ];
+  const notifications: { id: string; title: string; text: string; time: string; href: string; }[] = [];
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-bg/80 backdrop-blur-md border-b border-border/40">
+      <header className="sticky top-0 z-40 w-full bg-bg/85 backdrop-blur-xl border-b border-border/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand / Logo */}
           <Link to="/" className="flex items-center gap-2.5 group">

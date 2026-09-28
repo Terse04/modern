@@ -16,38 +16,66 @@
   --accent-emerald: #10B981;
   --accent-cream: #EAE5DB;
   --accent-cream-hover: #DCD6CB;
+  /* iOS safe area insets */
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sat: env(safe-area-inset-top, 0px);
 }
 
+/* ─── Base ───────────────────────────────────────────────────────────── */
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
 }
 
-/* Custom Scrollbars */
+/* Prevent rubber-banding on mobile browsers */
+html, body {
+  overflow-x: hidden;
+}
+
+/* PWA standalone mode — fill status bar area */
+@media all and (display-mode: standalone) {
+  body {
+    padding-top: var(--sat);
+  }
+}
+
+/* ─── Safe Area Padding Utility ──────────────────────────────────────── */
+.pb-safe {
+  padding-bottom: max(12px, var(--sab));
+}
+
+/* ─── Scrollbars ─────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.10);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.22);
 }
 
-/* Custom Range Slider */
+/* Hide scrollbar on mobile for horizontal scroll lists */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─── Range Slider ───────────────────────────────────────────────────── */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   cursor: pointer;
+  /* Larger touch target on mobile */
+  min-height: 20px;
 }
 
 input[type="range"]:focus {
@@ -55,7 +83,7 @@ input[type="range"]:focus {
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   height: 4px;
   border-radius: 2px;
 }
@@ -63,43 +91,111 @@ input[type="range"]::-webkit-slider-runnable-track {
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  height: 12px;
-  width: 12px;
+  height: 16px;
+  width: 16px;
   border-radius: 50%;
   background: #EAE5DB;
-  margin-top: -4px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-  transition: transform 0.1s ease, background-color 0.1s ease;
+  margin-top: -6px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
-input[type="range"]:hover::-webkit-slider-thumb {
-  transform: scale(1.25);
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.2);
   background: #FFFFFF;
 }
 
 input[type="range"]::-moz-range-track {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   height: 4px;
   border-radius: 2px;
 }
 
 input[type="range"]::-moz-range-thumb {
-  height: 12px;
-  width: 12px;
+  height: 16px;
+  width: 16px;
   border-radius: 50%;
   background: #EAE5DB;
   border: none;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
 
-/* Glass & Glow utilities */
+/* ─── Glass & Glow Utilities ─────────────────────────────────────────── */
 .glass-panel {
-  background: rgba(16, 18, 20, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(16, 18, 20, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .text-balance {
   text-wrap: balance;
+}
+
+/* ─── Premium Glow Ring on Artwork ───────────────────────────────────── */
+.shadow-artwork-glow {
+  box-shadow:
+    0 20px 60px -15px rgba(0, 0, 0, 0.8),
+    0 0 40px -10px rgba(52, 211, 153, 0.08);
+}
+
+/* ─── Smooth Page Transitions ────────────────────────────────────────── */
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+main > * {
+  animation: pageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Mobile-First Responsive Helpers ────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Tighter hero on small screens */
+  .hero-compact {
+    padding: 1.5rem !important;
+  }
+
+  /* Prevent content being obscured by mobile nav bar */
+  .mobile-nav-spacer {
+    height: 64px;
+  }
+}
+
+/* ─── Premium Button Hover Glow ──────────────────────────────────────── */
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+}
+.btn-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(234, 229, 219, 0.15), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.btn-glow:hover::after {
+  opacity: 1;
+}
+
+/* ─── Animated Gradient Border ───────────────────────────────────────── */
+@keyframes borderShimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.border-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(234,229,219,0.15), rgba(255,255,255,0.04));
+  background-size: 200% 100%;
+  animation: borderShimmer 3s linear infinite;
 }

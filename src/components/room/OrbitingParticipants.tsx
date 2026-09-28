@@ -61,36 +61,36 @@ export const OrbitingParticipants: React.FC<OrbitingParticipantsProps> = ({
   // Mobile / Tablet Row View
   if (isMobile) {
     return (
-      <div className="w-full py-3 px-2">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-2 px-1">
+      <div className="w-full py-1.5 px-1">
+        <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 px-1">
           {members.map((member) => (
             <button
               key={member.id}
               onClick={() => setSelectedMember(member)}
               type="button"
-              className="flex flex-col items-center gap-1.5 flex-shrink-0 group text-left focus:outline-none"
+              className="flex flex-col items-center gap-1 flex-shrink-0 group text-left focus:outline-none"
             >
               <div className="relative">
                 <img
                   src={member.user.avatar}
                   alt={member.user.name}
-                  className={`w-11 h-11 rounded-full object-cover ring-2 transition-all ${
+                  className={`w-9 h-9 rounded-full object-cover ring-2 transition-all ${
                     member.role === 'host'
-                      ? 'ring-accent-cream ring-offset-2 ring-offset-bg'
+                      ? 'ring-accent-cream ring-offset-1 ring-offset-bg'
                       : member.status === 'reacting'
-                      ? 'ring-accent-emerald ring-offset-2 ring-offset-bg animate-pulse'
+                      ? 'ring-accent-emerald ring-offset-1 ring-offset-bg animate-pulse'
                       : 'ring-white/10 group-hover:ring-white/30'
                   }`}
                 />
                 {/* Active reaction pill */}
                 {member.activeReaction && (
-                  <span className="absolute -top-1.5 -right-1 text-xs bg-surface-elevated rounded-full p-0.5 border border-border shadow-md">
+                  <span className="absolute -top-1 -right-0.5 text-[10px] bg-surface-elevated rounded-full p-0.5 border border-border shadow-md">
                     {member.activeReaction}
                   </span>
                 )}
                 {/* Status Dot */}
                 <span
-                  className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-bg ${
+                  className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ring-[1.5px] ring-bg ${
                     member.role === 'host'
                       ? 'bg-accent-cream'
                       : member.status === 'joined'
@@ -100,7 +100,7 @@ export const OrbitingParticipants: React.FC<OrbitingParticipantsProps> = ({
                 />
               </div>
 
-              <span className="text-[11px] font-medium text-text-secondary truncate max-w-[65px]">
+              <span className="text-[10px] font-medium text-text-secondary truncate max-w-[55px]">
                 {member.user.name.split(' ')[0]}
               </span>
             </button>

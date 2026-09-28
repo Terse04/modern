@@ -25,30 +25,28 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
   const count = listenerCount !== undefined ? listenerCount : (room.listenerCount || 1);
 
   return (
-    <header className="w-full flex items-center justify-between py-4 px-4 sm:px-8 border-b border-border/40 bg-bg/50 backdrop-blur-md">
-      {/* Left: Back button & Room Title & Listener Count */}
-      <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+    <header className="w-full flex items-center justify-between py-2.5 sm:py-3.5 px-3 sm:px-6 border-b border-border/30 bg-bg/70 backdrop-blur-xl flex-shrink-0 z-20">
+      {/* Left: Back + Room Title + Listener Count */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <Link
           to="/"
-          className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-elevated rounded-full transition-colors flex-shrink-0"
+          className="p-1.5 sm:p-2 text-text-muted hover:text-text-primary hover:bg-surface-elevated rounded-full transition-colors flex-shrink-0"
           title="Back to Discover"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
         </Link>
 
         <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-sm sm:text-base md:text-lg font-bold tracking-tight text-text-primary uppercase font-display truncate">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-text-primary uppercase font-display truncate max-w-[120px] sm:max-w-none">
               {room.name}
             </h1>
-            <span className="text-text-muted text-xs">|</span>
+            <span className="text-text-muted/50 text-xs hidden sm:inline">|</span>
             <LiveBadge size="sm" />
           </div>
-          <div className="flex items-center gap-2 mt-0.5 text-xs text-text-secondary">
-            <span className="flex items-center gap-1">
-              <Users className="w-3.5 h-3.5 text-text-muted" />
-              <span>{count} {count === 1 ? 'listener' : 'listeners'}</span>
-            </span>
+          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] sm:text-xs text-text-secondary">
+            <Users className="w-3 h-3 text-text-muted" />
+            <span>{count} {count === 1 ? 'listener' : 'listeners'}</span>
           </div>
         </div>
       </div>
@@ -64,8 +62,8 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
         <span className="text-xs font-semibold text-text-primary">@{room.host.username}</span>
       </div>
 
-      {/* Right: Actions (Share, Invite, Settings) */}
-      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+      {/* Right: Actions */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
         <Button
           variant="secondary"
           size="sm"
@@ -80,10 +78,11 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
           variant="primary"
           size="sm"
           onClick={onOpenInvite}
-          className="shadow-sm font-semibold tracking-wide"
+          className="shadow-sm font-semibold tracking-wide text-xs sm:text-sm"
         >
           <UserPlus className="w-3.5 h-3.5" />
-          <span>+ INVITE</span>
+          <span className="hidden sm:inline">+ INVITE</span>
+          <span className="sm:hidden">+</span>
         </Button>
 
         <Button
@@ -100,20 +99,20 @@ export const RoomHeader: React.FC<RoomHeaderProps> = ({
         {onOpenAuth && (
           <button
             onClick={onOpenAuth}
-            className="flex items-center gap-1.5 pl-1 pr-2.5 py-1 bg-surface-elevated/80 border border-border hover:border-border-focus rounded-full transition-all group"
+            className="flex items-center gap-1 pl-0.5 pr-2 py-0.5 bg-surface-elevated/80 border border-border hover:border-border-focus rounded-full transition-all group"
             title="Switch Persona / Sign In"
           >
             <div className="relative">
               <img
                 src={currentUser.avatar}
                 alt={currentUser.name}
-                className="w-6 h-6 rounded-full object-cover ring-1 ring-white/10"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover ring-1 ring-white/10"
               />
-              <span className={`absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full ring-1 ring-surface ${
+              <span className={`absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ring-1 ring-surface ${
                 isAuthenticated ? 'bg-accent-emerald' : 'bg-accent-amber'
               }`} />
             </div>
-            <span className="text-[11px] font-medium text-text-primary group-hover:text-accent-cream truncate max-w-[70px] sm:max-w-[100px]">
+            <span className="text-[10px] sm:text-[11px] font-medium text-text-primary group-hover:text-accent-cream truncate max-w-[50px] sm:max-w-[80px]">
               @{currentUser.username}
             </span>
           </button>
