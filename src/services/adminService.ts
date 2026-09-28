@@ -114,6 +114,7 @@ export const adminService = {
         .order('created_at', { ascending: false });
 
       if (!error && data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return data.map((p: any) => ({
           id: p.id,
           username: p.username,
@@ -170,6 +171,7 @@ export const adminService = {
         .order('created_at', { ascending: false });
 
       if (!error && data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return data.map((r: any) => ({
           id: r.id,
           name: r.name,
@@ -259,6 +261,7 @@ export const adminService = {
       if (res.ok) {
         const json = await res.json();
         if (json.tracks && Array.isArray(json.tracks)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return json.tracks.map((t: any) => ({
             id: t.id,
             title: t.title,
@@ -279,6 +282,7 @@ export const adminService = {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
       if (!error && data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return data.map((t: any) => ({
           id: t.id,
           title: t.title,

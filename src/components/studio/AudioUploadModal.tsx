@@ -190,7 +190,7 @@ export const AudioUploadModal: React.FC<AudioUploadModalProps> = ({
       if (extracted.duration > 0) {
         addToast(`Parsed audio: ${extracted.title} (${formatSeconds(extracted.duration)})`, 'info');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('[AudioUploadModal] Extraction error:', err);
       setTitle(file.name.replace(/\.[^/.]+$/, ''));
       setArtist('Local Artist');
@@ -247,9 +247,9 @@ export const AudioUploadModal: React.FC<AudioUploadModalProps> = ({
       addToast(`"${newTrack.title}" uploaded & added to room!`, 'success');
       onUploaded(newTrack);
       handleClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[AudioUploadModal] Upload error:', err);
-      addToast(err.message || 'Upload failed', 'error');
+      addToast((err instanceof Error ? err.message : null) || 'Upload failed', 'error');
     } finally {
       setIsUploading(false);
     }

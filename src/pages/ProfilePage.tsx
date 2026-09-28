@@ -33,14 +33,14 @@ export const ProfilePage: React.FC = () => {
     try {
       const saved = localStorage.getItem('modern_audio_prefs');
       if (saved) return JSON.parse(saved).latencyMode || 'balanced';
-    } catch (_) {}
+    } catch { /* ignore */ }
     return 'balanced';
   });
   const [crossfade, setCrossfade] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('modern_audio_prefs');
       if (saved) return JSON.parse(saved).crossfade ?? 3;
-    } catch (_) {}
+    } catch { /* ignore */ }
     return 3;
   });
   const [autoSync, setAutoSync] = useState<boolean>(true);
@@ -110,7 +110,7 @@ export const ProfilePage: React.FC = () => {
           hapticReactions,
         })
       );
-    } catch (_) {}
+    } catch { /* ignore localStorage errors */ }
     addToast('Audio & sync preferences saved!');
   };
 
@@ -428,7 +428,7 @@ export const ProfilePage: React.FC = () => {
                 ].map((mode) => (
                   <button
                     key={mode.id}
-                    onClick={() => setLatencyMode(mode.id as any)}
+                    onClick={() => setLatencyMode(mode.id as 'ultra-low' | 'balanced' | 'hifi')}
                     className={`p-3 rounded-xl border text-left transition-all ${
                       latencyMode === mode.id
                         ? 'bg-accent-cream text-bg border-accent-cream'

@@ -233,6 +233,17 @@ class RealtimeService {
       driftMs, status, latencyMs, lastCalculated: Date.now(), action, targetPosition: expectedCurrentTime
     };
   }
+  /** Tear down all active room channels (called on sign-out) */
+  leaveChannel() {
+    if (!supabase) return;
+    for (const roomId of this.supabaseChannels.keys()) {
+      this.destroyChannels(roomId);
+    }
+    this.listeners.clear();
+    this.presenceListeners.clear();
+    this.playbackListeners.clear();
+    this.localPresenceMap.clear();
+  }
 }
 
 export const realtimeService = new RealtimeService();

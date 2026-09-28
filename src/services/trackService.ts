@@ -16,6 +16,7 @@ export const trackService = {
       try {
         const { data, error } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
         if (!error && data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data.forEach((t: any) => {
             map.set(t.id, {
               id: t.id,
@@ -63,7 +64,7 @@ export const trackService = {
             genre: data.genre,
           };
         }
-      } catch (_) {}
+      } catch { /* ignore – fall back to curated list */ }
     }
     return CURATED_OPEN_TRACKS.find((t) => t.id === id) || null;
   },

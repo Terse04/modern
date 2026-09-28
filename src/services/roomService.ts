@@ -406,8 +406,8 @@ export const roomService = {
     if (isSupabaseConfigured && supabase) {
       try {
         await supabase.rpc('room_heartbeat', { p_room_id: roomId });
-      } catch (err) {
-        // ignore
+      } catch {
+        // ignore heartbeat errors
       }
     }
   },

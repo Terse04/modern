@@ -44,21 +44,19 @@ interface AuthState {
 
 // Ensure usePlaybackStore is imported at the top, or required here to avoid circular dep issues.
 function resetPlaybackStore() {
-  try {
-    const { usePlaybackStore } = require('./usePlaybackStore');
+  import('./usePlaybackStore').then(({ usePlaybackStore }) => {
     usePlaybackStore.getState().resetPlaybackState();
-  } catch (e) {
+  }).catch((e: unknown) => {
     console.warn('Failed to reset playback state:', e);
-  }
+  });
 }
 
 function resetRealtimeStore() {
-  try {
-    const { realtimeService } = require('../services/realtimeService');
+  import('../services/realtimeService').then(({ realtimeService }) => {
     realtimeService.leaveChannel();
-  } catch (e) {
+  }).catch((e: unknown) => {
     console.warn('Failed to reset realtime state:', e);
-  }
+  });
 }
 
 function getStoredUser(): User {
@@ -104,6 +102,7 @@ function saveStoredUser(user: User) {
  * `username === 'alex'` was the previous check and anyone could satisfy it by
  * registering that name.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapProfile(row: any): User {
   return {
     id: row.id,
@@ -156,12 +155,13 @@ async function fetchProfileByAuthUser(
  */
 async function ensureProfileForAuthUser(
   client: NonNullable<typeof supabase>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sessionUser: { id: string; email?: string; user_metadata?: any }
 ): Promise<User> {
   const existing = await fetchProfileByAuthUser(client, sessionUser.id);
   if (existing) return existing;
 
-  console.info('[Auth] No profile row found for auth user. Auto-repairing profile...');
+  console.warn('[Auth] No profile row found for auth user. Auto-repairing profile...');
   const meta = sessionUser.user_metadata || {};
   const baseUsername =
     (meta.username || sessionUser.email?.split('@')[0] || 'listener')

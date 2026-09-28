@@ -341,7 +341,7 @@ export class AudioEngine {
         try {
           o.stop();
           o.disconnect();
-        } catch (e) {
+        } catch {
           // ignore error if already stopped
         }
       });

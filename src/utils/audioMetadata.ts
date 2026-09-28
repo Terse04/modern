@@ -47,8 +47,8 @@ export function parseAudioFilename(filename: string): { title: string; artist: s
 
   // Fallback: clean track numbers and special characters
   const cleanTitle = base
-    .replace(/^[\d\s.\-_]+/, '')
-    .replace(/[_\-]+/g, ' ')
+    .replace(/^[\d\s._-]+/, '')
+    .replace(/[_-]+/g, ' ')
     .trim();
 
   return {

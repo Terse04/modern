@@ -32,7 +32,7 @@ export const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
         onSettingsUpdated({ ...room, settings });
       }
       onClose();
-    } catch (err) {
+    } catch {
       addToast('Failed to update settings', 'error');
     } finally {
       setIsLoading(false);

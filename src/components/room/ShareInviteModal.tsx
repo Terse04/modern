@@ -54,7 +54,7 @@ export const ShareInviteModal: React.FC<ShareInviteModalProps> = ({
           text: `Listening together in real-time. Join the room!`,
           url: roomUrl,
         });
-      } catch (_) {}
+      } catch { /* user cancelled share */ }
     } else {
       handleCopyLink();
     }

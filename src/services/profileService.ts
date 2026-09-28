@@ -58,7 +58,7 @@ export const profileService = {
           friends: parsed.friends || [],
         };
       }
-    } catch (_) {}
+    } catch { /* ignore localStorage read errors */ }
 
     // Return a clean default profile for any entered username
     return {
@@ -92,6 +92,7 @@ export const profileService = {
     const cleanUser = username.replace(/^@/, '').toLowerCase();
 
     if (isSupabaseConfigured && supabase) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dbUpdates: Record<string, any> = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
@@ -128,7 +129,7 @@ export const profileService = {
     const merged = { ...current, ...updates };
     try {
       localStorage.setItem(`modern_profile_${cleanUser}`, JSON.stringify(merged));
-    } catch (_) {}
+    } catch { /* ignore localStorage write errors */ }
     return merged;
   },
 };

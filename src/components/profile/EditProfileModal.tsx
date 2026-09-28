@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Upload, Sparkles, Check, Image as ImageIcon, Link as LinkIcon, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/Button';
 
-export const AVATAR_PRESETS = [
+const AVATAR_PRESETS = [
   {
     id: 'lofi_chill',
     label: 'Lo-Fi Chill',

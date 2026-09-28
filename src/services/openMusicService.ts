@@ -138,6 +138,7 @@ export const openMusicService = {
    * Helper to map Audius track response to Modern Track format
    */
   mapAudiusTrackToTrack(node: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (item: any): Track => {
       const artwork =
         item.artwork?.['480x480'] ||

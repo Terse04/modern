@@ -101,7 +101,7 @@ export const RoomPage: React.FC = () => {
       nextTrack(queue);
       addToast('Track skipped (Host Override)', 'info');
     } else {
-      voteSkip(currentUser.id, members.length, queue);
+      voteSkip(currentUser.id);
       addToast('Voted to skip current track', 'info');
     }
   };
@@ -434,7 +434,7 @@ export const RoomPage: React.FC = () => {
           </button>
 
           <button
-            onClick={() => previousTrack(queue)}
+            onClick={() => previousTrack()}
             className="p-2.5 text-text-secondary hover:text-text-primary transition-colors"
             title="Previous"
           >

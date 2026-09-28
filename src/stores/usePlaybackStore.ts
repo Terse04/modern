@@ -27,7 +27,7 @@ interface PlaybackStore {
   // Actions
   setIsHost: (isHost: boolean) => void;
   toggleSoloMode: () => void;
-  voteSkip: (userId: string, totalMembers: number, queue: QueueItem[]) => void;
+  voteSkip: (userId: string) => void;
   resetSkipVotes: () => void;
   initRoom: (roomId: string, initialTrack?: Track, isHostUser?: boolean) => () => void;
   setTrack: (track: Track, autoPlay?: boolean) => Promise<void>;
@@ -37,7 +37,7 @@ interface PlaybackStore {
   seek: (seconds: number) => void;
   resyncNow: () => void;
   nextTrack: (queue: QueueItem[]) => void;
-  previousTrack: (queue: QueueItem[]) => void;
+  previousTrack: () => void;
   setVolume: (vol: number) => void;
   toggleMute: () => void;
   toggleShuffle: () => void;
@@ -125,7 +125,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       }
     },
 
-    voteSkip: async (userId: string, _totalMembers: number, _queue: QueueItem[]) => {
+    voteSkip: async (userId: string) => {
       const { skipVotes, currentRoomId } = get();
       if (skipVotes.includes(userId)) return;
 
@@ -164,8 +164,8 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
 
       globalAudioEngine.loadTrack(trackToPlay.audioUrl, false);
 
-      const unsubscribe = realtimeService.subscribeToRoom(roomId, (_event) => {
-         // handle chat/reaction? No, that's done in components
+      const unsubscribe = realtimeService.subscribeToRoom(roomId, () => {
+         // chat/reaction events are handled directly in components
       }, (state) => {
          get().syncFromPlaybackState(state);
       });
@@ -270,7 +270,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       }
     },
 
-    previousTrack: (_queue: QueueItem[]) => {
+    previousTrack: () => {
       // Per instructions: previousTrack = restart current track
       get().seek(0);
     },
