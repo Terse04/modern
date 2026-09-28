@@ -164,11 +164,34 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
 
       globalAudioEngine.loadTrack(trackToPlay.audioUrl, false);
 
+      // Subscribe to realtime playback state changes from room_playback table
       const unsubscribe = realtimeService.subscribeToRoom(roomId, () => {
          // chat/reaction events are handled directly in components
       }, (state) => {
          get().syncFromPlaybackState(state);
       });
+
+      // Bootstrap: Fetch current playback state from the database so we don't
+      // sit on revision 0 with a stale track while waiting for the first
+      // realtime UPDATE event.
+      if (isSupabaseConfigured && supabase) {
+        supabase.rpc('get_playback_state', { p_room_id: roomId }).then(({ data, error }) => {
+          if (!error && data && data.found) {
+            const bootstrapState: PlaybackState = {
+              trackId: data.trackId,
+              status: data.status as PlaybackStatus,
+              positionMs: data.positionMs,
+              revision: data.revision,
+              updatedAt: data.updatedAt,
+            };
+            // Only apply if we are still revision 0 (haven't received a
+            // realtime update yet) and the server has a newer revision.
+            if (get().revision === 0 && bootstrapState.revision > 0) {
+              get().syncFromPlaybackState(bootstrapState);
+            }
+          }
+        });
+      }
 
       return () => {
         unsubscribe();
@@ -176,6 +199,8 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     },
 
     setTrack: async (track: Track, autoPlay = true) => {
+      const { currentRoomId, revision, isHost } = get();
+
       set({
         currentTrack: track,
         position: 0,
@@ -183,6 +208,21 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
         skipVotes: [],
       });
       await globalAudioEngine.loadTrack(track.audioUrl, autoPlay);
+
+      // HOST: Write the new track to the authoritative room_playback row
+      // so all listeners pick it up via the postgres_changes subscription.
+      if (isHost && currentRoomId && isSupabaseConfigured && supabase) {
+        const { data } = await supabase.rpc('set_playback_state', {
+          p_room_id: currentRoomId,
+          p_status: autoPlay ? 'playing' : 'paused',
+          p_position_ms: 0,
+          p_expected_revision: revision,
+          p_track_id: track.id,
+        });
+        if (data?.revision) {
+          set({ revision: data.revision });
+        }
+      }
     },
 
     play: async () => {
@@ -195,12 +235,15 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       set({ status: 'playing', position: currentPos });
 
       if (get().isHost && currentRoomId && isSupabaseConfigured && supabase) {
-        supabase.rpc('set_playback_state', {
+        const { data } = await supabase.rpc('set_playback_state', {
           p_room_id: currentRoomId,
           p_status: 'playing',
           p_position_ms: Math.floor(currentPos * 1000),
-          p_expected_revision: revision
+          p_expected_revision: revision,
         });
+        if (data?.revision) {
+          set({ revision: data.revision });
+        }
       }
     },
 
@@ -216,7 +259,11 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
           p_room_id: currentRoomId,
           p_status: 'paused',
           p_position_ms: Math.floor(currentPos * 1000),
-          p_expected_revision: revision
+          p_expected_revision: revision,
+        }).then(({ data }) => {
+          if (data?.revision) {
+            set({ revision: data.revision });
+          }
         });
       }
     },
@@ -240,7 +287,11 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
           p_room_id: currentRoomId,
           p_status: status,
           p_position_ms: Math.floor(seconds * 1000),
-          p_expected_revision: revision
+          p_expected_revision: revision,
+        }).then(({ data }) => {
+          if (data?.revision) {
+            set({ revision: data.revision });
+          }
         });
       }
     },
@@ -301,9 +352,23 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
 
     syncFromPlaybackState: async (remoteState: PlaybackState) => {
       const state = get();
+
+      // Skip if in solo mode
       if (state.isSoloMode) return;
-      if (remoteState.revision <= state.revision) return;
-      
+
+      // Skip if we already processed this or a newer revision
+      // BUT allow revision 0 -> any (initial bootstrap)
+      if (state.revision > 0 && remoteState.revision <= state.revision) return;
+
+      // Host ignores realtime updates (they are the source of truth)
+      if (state.isHost) {
+        // Just keep revision in sync
+        if (remoteState.revision > state.revision) {
+          set({ revision: remoteState.revision });
+        }
+        return;
+      }
+
       set({ revision: remoteState.revision });
 
       const serverTimestamp = new Date(remoteState.updatedAt).getTime();
@@ -317,11 +382,19 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
           expectedPosition = authoritativePosition + (elapsedMs / 1000);
       }
 
+      // Track changed — load the new track
       if (state.currentTrack?.id !== remoteState.trackId) {
          if (remoteState.trackId) {
             const foundTrack = await trackService.getTrackById(remoteState.trackId);
             if (foundTrack) {
-               await state.setTrack(foundTrack, false);
+               // Use loadTrack directly to avoid host-only setTrack side effects
+               set({
+                 currentTrack: foundTrack,
+                 position: 0,
+                 duration: foundTrack.duration,
+                 skipVotes: [],
+               });
+               await globalAudioEngine.loadTrack(foundTrack.audioUrl, false);
             }
          } else {
             set({ currentTrack: null });
