@@ -187,6 +187,12 @@ export const roomService = {
       let newHostId = hostUser.id;
 
       if (hasSession) {
+        // Enforce the correct profile ID to avoid RLS violations if frontend state is stale
+        const { data: profileId } = await supabase.rpc('current_profile_id');
+        if (profileId) {
+          newHostId = profileId;
+        }
+
         const { error: insertErr } = await supabase.from('rooms').insert({
           id: newRoom.id,
           name: newRoom.name,
@@ -211,10 +217,14 @@ export const roomService = {
         }
 
         const { data: rpcData, error: rpcErr } = await supabase.rpc('create_room_guest', {
-          p_room_id: newRoom.id,
+          p_fingerprint: guestFingerprint,
           p_name: newRoom.name,
           p_description: newRoom.description || '',
-          p_client_fingerprint: guestFingerprint
+          p_playback_permissions: newRoom.settings.playbackPermissions,
+          p_visibility: newRoom.settings.visibility,
+          p_max_listeners: newRoom.settings.maxListeners || 50,
+          p_allow_chat: newRoom.settings.allowChat,
+          p_allow_queue: newRoom.settings.allowQueueAdditions
         });
 
         if (rpcErr) {
@@ -222,8 +232,10 @@ export const roomService = {
           throw new Error(rpcErr.message);
         }
 
-        newHostId = (rpcData as { profile_id: string }).profile_id;
+        const parsedData = rpcData as { profile_id: string, room_id: string };
+        newHostId = parsedData.profile_id;
         newRoom.host.id = newHostId;
+        newRoom.id = parsedData.room_id;
       }
     } else {
       // Add to demo store only when not configured

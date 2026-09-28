@@ -175,13 +175,16 @@ async function ensureProfileForAuthUser(
   const avatar =
     meta.avatar_url ||
     'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80';
+    
+  const fallbackId = `usr_${sessionUser.id.replace(/-/g, '').slice(0, 12)}`;
 
   try {
     const { data: inserted, error: insertErr } = await client
       .from('profiles')
       .upsert(
         {
-          id: sessionUser.id,
+          id: fallbackId,
+          auth_user_id: sessionUser.id,
           username: cleanUsername,
           name: cleanName,
           avatar,
@@ -204,7 +207,8 @@ async function ensureProfileForAuthUser(
         .from('profiles')
         .upsert(
           {
-            id: sessionUser.id,
+            id: fallbackId,
+            auth_user_id: sessionUser.id,
             username: fallbackUsername,
             name: cleanName,
             avatar,
@@ -226,7 +230,7 @@ async function ensureProfileForAuthUser(
 
   // Fallback memory user with valid auth UUID
   return {
-    id: sessionUser.id,
+    id: fallbackId,
     username: cleanUsername,
     name: cleanName,
     avatar,
