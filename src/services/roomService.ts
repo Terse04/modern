@@ -152,20 +152,34 @@ export const roomService = {
     };
 
     if (isSupabaseConfigured && supabase) {
-      // Ensure the initial track exists in the DB so the FK works
+      // Ensure the initial track exists in the DB so the FK works safely
+      let validTrackId: string | null = null;
       try {
-        await supabase.from('tracks').upsert({
-          id: initialTrack.id,
-          title: initialTrack.title,
-          artist: initialTrack.artist,
-          album: initialTrack.album,
-          artwork: initialTrack.artwork,
-          duration: Math.max(1, Math.round(initialTrack.duration)),
-          audio_url: initialTrack.audioUrl,
-          genre: initialTrack.genre,
-        }, { onConflict: 'id' });
+        const { data: trackRow } = await supabase
+          .from('tracks')
+          .select('id')
+          .eq('id', initialTrack.id)
+          .maybeSingle();
+
+        if (trackRow?.id) {
+          validTrackId = trackRow.id;
+        } else {
+          const { error: trackErr } = await supabase.from('tracks').insert({
+            id: initialTrack.id,
+            title: initialTrack.title,
+            artist: initialTrack.artist,
+            album: initialTrack.album,
+            artwork: initialTrack.artwork,
+            duration: Math.max(1, Math.round(initialTrack.duration)),
+            audio_url: initialTrack.audioUrl,
+            genre: initialTrack.genre,
+          });
+          if (!trackErr) {
+            validTrackId = initialTrack.id;
+          }
+        }
       } catch (err) {
-        console.warn('[roomService] Could not upsert initial track:', err);
+        console.warn('[roomService] Could not check or insert initial track:', err);
       }
 
       const { data: sessionData } = await supabase.auth.getSession();
@@ -187,7 +201,7 @@ export const roomService = {
           host_id: newHostId,
           is_live: true,
           listener_count: 1,
-          current_track_id: initialTrack.id,
+          current_track_id: validTrackId,
           settings: newRoom.settings,
         });
 
@@ -436,29 +450,42 @@ export const roomService = {
 
     if (isSupabaseConfigured && supabase) {
       // Ensure the track exists in the tracks table before creating the
-      // queue_item. Without this upsert, open-library tracks (which are
-      // in-memory only) would violate the queue_items.track_id FK and
-      // disappear on page refresh.
+      // queue_item. Without this insert, in-memory tracks would violate
+      // the queue_items.track_id FK and disappear on page refresh.
       try {
-        await supabase.from('tracks').upsert({
-          id: track.id,
-          title: track.title,
-          artist: track.artist,
-          album: track.album,
-          artwork: track.artwork,
-          duration: Math.max(1, Math.round(track.duration)),
-          audio_url: track.audioUrl,
-          genre: track.genre,
-        }, { onConflict: 'id' });
+        const { data: trackRow } = await supabase
+          .from('tracks')
+          .select('id')
+          .eq('id', track.id)
+          .maybeSingle();
+
+        if (!trackRow?.id) {
+          await supabase.from('tracks').insert({
+            id: track.id,
+            title: track.title,
+            artist: track.artist,
+            album: track.album,
+            artwork: track.artwork,
+            duration: Math.max(1, Math.round(track.duration)),
+            audio_url: track.audioUrl,
+            genre: track.genre,
+          });
+        }
       } catch (err) {
-        console.warn('[roomService] Could not upsert queue track:', err);
+        console.warn('[roomService] Could not check or insert queue track:', err);
+      }
+
+      let adderId: string | null = null;
+      if (user?.id) {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle();
+        if (prof) adderId = prof.id;
       }
 
       await supabase.from('queue_items').insert({
         id: newItem.id,
         room_id: roomId,
         track_id: track.id,
-        added_by_id: user.id,
+        added_by_id: adderId,
         votes: 1,
       });
     }
