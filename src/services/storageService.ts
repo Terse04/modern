@@ -125,7 +125,8 @@ export const storageService = {
           });
 
         if (!uploadErr) {
-          audioUrl = storagePath;
+          const { data: audioUrlData } = supabase.storage.from('tracks').getPublicUrl(storagePath);
+          audioUrl = audioUrlData?.publicUrl || storagePath;
         } else {
           // If direct upload failed due to RLS, request a signed upload URL from serverless API
           try {
@@ -137,7 +138,8 @@ export const storageService = {
                   .from('tracks')
                   .uploadToSignedUrl(storagePath, signData.token, file);
                 if (!signUpErr) {
-                  audioUrl = storagePath;
+                  const { data: audioUrlData } = supabase.storage.from('tracks').getPublicUrl(storagePath);
+                  audioUrl = audioUrlData?.publicUrl || storagePath;
                 }
               }
             }
@@ -213,16 +215,31 @@ export const storageService = {
     // 4. Save to Supabase DB if available
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('tracks').insert({
+        const { data: sessionData } = await supabase.auth.getSession();
+        let contributorId: string | null = null;
+        if (sessionData?.session?.user?.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('auth_user_id', sessionData.session.user.id)
+            .maybeSingle();
+          if (profile) contributorId = profile.id;
+        }
+
+        const { error: dbError } = await supabase.from('tracks').insert({
           id: newTrack.id,
           title: newTrack.title,
           artist: newTrack.artist,
           album: newTrack.album,
           artwork: newTrack.artwork,
-          duration: newTrack.duration,
+          duration: Math.max(1, Math.round(newTrack.duration)),
           audio_url: newTrack.audioUrl,
           genre: newTrack.genre,
+          contributor_id: contributorId,
         });
+        if (dbError) {
+          console.warn('[StorageService] Could not insert track into Supabase table:', dbError);
+        }
       } catch (err) {
         console.warn('[StorageService] Could not insert track into Supabase table:', err);
       }

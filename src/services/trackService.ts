@@ -11,13 +11,18 @@ export const trackService = {
     // 1. Add uploaded custom tracks first
     uploadedTracks.forEach((t) => map.set(t.id, t));
 
-    // 2. Fetch Supabase tracks if configured
-    if (isSupabaseConfigured && supabase) {
+    const client = supabase;
+    if (isSupabaseConfigured && client) {
       try {
-        const { data, error } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
+        const { data, error } = await client.from('tracks').select('*').order('created_at', { ascending: false });
         if (!error && data) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data.forEach((t: any) => {
+            let audioUrl = t.audio_url || '';
+            if (audioUrl && !audioUrl.startsWith('http') && !audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) {
+              const { data: pubData } = client.storage.from('tracks').getPublicUrl(audioUrl);
+              if (pubData?.publicUrl) audioUrl = pubData.publicUrl;
+            }
             map.set(t.id, {
               id: t.id,
               title: t.title,
@@ -25,7 +30,7 @@ export const trackService = {
               album: t.album,
               artwork: t.artwork,
               duration: t.duration,
-              audioUrl: t.audio_url,
+              audioUrl,
               genre: t.genre,
             });
           });
@@ -49,10 +54,16 @@ export const trackService = {
     const uploaded = storageService.getUploadedTracks().find((t) => t.id === id);
     if (uploaded) return uploaded;
 
-    if (isSupabaseConfigured && supabase) {
+    const client = supabase;
+    if (isSupabaseConfigured && client) {
       try {
-        const { data, error } = await supabase.from('tracks').select('*').eq('id', id).single();
+        const { data, error } = await client.from('tracks').select('*').eq('id', id).single();
         if (!error && data) {
+          let audioUrl = data.audio_url || '';
+          if (audioUrl && !audioUrl.startsWith('http') && !audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) {
+            const { data: pubData } = client.storage.from('tracks').getPublicUrl(audioUrl);
+            if (pubData?.publicUrl) audioUrl = pubData.publicUrl;
+          }
           return {
             id: data.id,
             title: data.title,
@@ -60,7 +71,7 @@ export const trackService = {
             album: data.album,
             artwork: data.artwork,
             duration: data.duration,
-            audioUrl: data.audio_url,
+            audioUrl,
             genre: data.genre,
           };
         }

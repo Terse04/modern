@@ -266,20 +266,30 @@ export const RoomPage: React.FC = () => {
     [roomId, broadcastQueueUpdate]
   );
 
-  const handleTrackUploaded = (newTrack: Track) => {
-    const newItem: QueueItem = {
-      id: `qi_${Date.now()}`,
-      roomId: roomId || '',
-      track: newTrack,
-      addedBy: currentUser,
-      votes: 1,
-      hasVoted: true,
-      addedAt: new Date().toISOString(),
-    };
-    const updatedQueue = [...queue, newItem];
-    setQueue(updatedQueue);
-    broadcastQueueUpdate(updatedQueue);
-    addToast(`Added "${newTrack.title}" to room queue`, 'success');
+  const handleTrackUploaded = async (newTrack: Track) => {
+    if (!roomId) return;
+    try {
+      const addedItem = await roomService.addQueueTrack(roomId, newTrack, currentUser);
+      const updatedQueue = [...queue.filter((q) => q.id !== addedItem.id), addedItem];
+      setQueue(updatedQueue);
+      broadcastQueueUpdate(updatedQueue);
+      addToast(`Added "${newTrack.title}" to room queue`, 'success');
+    } catch (err) {
+      console.warn('[RoomPage] Could not persist queue item:', err);
+      const newItem: QueueItem = {
+        id: `qi_${Date.now()}`,
+        roomId: roomId || '',
+        track: newTrack,
+        addedBy: currentUser,
+        votes: 1,
+        hasVoted: true,
+        addedAt: new Date().toISOString(),
+      };
+      const updatedQueue = [...queue, newItem];
+      setQueue(updatedQueue);
+      broadcastQueueUpdate(updatedQueue);
+      addToast(`Added "${newTrack.title}" to room queue`, 'success');
+    }
   };
 
   const handlePlayNext = async (itemId: string) => {

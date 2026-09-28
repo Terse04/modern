@@ -154,32 +154,18 @@ export const roomService = {
     if (isSupabaseConfigured && supabase) {
       // Ensure the initial track exists in the DB so the FK works
       try {
-        await fetch('/api/admin?action=upsert-track', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: initialTrack.id,
-            title: initialTrack.title,
-            artist: initialTrack.artist,
-            album: initialTrack.album,
-            artwork: initialTrack.artwork,
-            duration: initialTrack.duration,
-            audioUrl: initialTrack.audioUrl,
-            genre: initialTrack.genre,
-          }),
-        });
-      } catch {
-        // Best-effort: try direct upsert
         await supabase.from('tracks').upsert({
           id: initialTrack.id,
           title: initialTrack.title,
           artist: initialTrack.artist,
           album: initialTrack.album,
           artwork: initialTrack.artwork,
-          duration: initialTrack.duration,
+          duration: Math.max(1, Math.round(initialTrack.duration)),
           audio_url: initialTrack.audioUrl,
           genre: initialTrack.genre,
         }, { onConflict: 'id' });
+      } catch (err) {
+        console.warn('[roomService] Could not upsert initial track:', err);
       }
 
       const { data: sessionData } = await supabase.auth.getSession();
@@ -454,32 +440,18 @@ export const roomService = {
       // in-memory only) would violate the queue_items.track_id FK and
       // disappear on page refresh.
       try {
-        await fetch('/api/admin?action=upsert-track', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: track.id,
-            title: track.title,
-            artist: track.artist,
-            album: track.album,
-            artwork: track.artwork,
-            duration: track.duration,
-            audioUrl: track.audioUrl,
-            genre: track.genre,
-          }),
-        });
-      } catch {
-        // Best-effort: if the admin API is unavailable, try direct upsert
         await supabase.from('tracks').upsert({
           id: track.id,
           title: track.title,
           artist: track.artist,
           album: track.album,
           artwork: track.artwork,
-          duration: track.duration,
+          duration: Math.max(1, Math.round(track.duration)),
           audio_url: track.audioUrl,
           genre: track.genre,
         }, { onConflict: 'id' });
+      } catch (err) {
+        console.warn('[roomService] Could not upsert queue track:', err);
       }
 
       await supabase.from('queue_items').insert({

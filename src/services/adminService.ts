@@ -255,48 +255,35 @@ export const adminService = {
 
   // ─── Tracks Management ──────────────────────────────────────────────────
   async getAllTracks(): Promise<Track[]> {
-    // Primary: fetch via admin API (uses secret key, bypasses RLS)
-    try {
-      const res = await fetch('/api/admin?action=get-tracks');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.tracks && Array.isArray(json.tracks)) {
+    const client = supabase;
+    if (isSupabaseConfigured && client) {
+      try {
+        const { data, error } = await client.from('tracks').select('*').order('created_at', { ascending: false });
+        if (!error && data) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return json.tracks.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            artist: t.artist,
-            album: t.album,
-            artwork: t.artwork,
-            duration: t.duration,
-            audioUrl: t.audio_url,
-            genre: t.genre,
-          }));
+          return data.map((t: any) => {
+            let audioUrl = t.audio_url || '';
+            if (audioUrl && !audioUrl.startsWith('http') && !audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) {
+              const { data: pubData } = client.storage.from('tracks').getPublicUrl(audioUrl);
+              if (pubData?.publicUrl) audioUrl = pubData.publicUrl;
+            }
+            return {
+              id: t.id,
+              title: t.title,
+              artist: t.artist,
+              album: t.album,
+              artwork: t.artwork,
+              duration: t.duration,
+              audioUrl,
+              genre: t.genre,
+            };
+          });
         }
-      }
-    } catch {
-      // Admin API unavailable, fall through to direct Supabase query
-    }
-
-    // Fallback: direct Supabase client query (may be limited by RLS)
-    if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
-      if (!error && data) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return data.map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          artist: t.artist,
-          album: t.album,
-          artwork: t.artwork,
-          duration: t.duration,
-          audioUrl: t.audio_url,
-          genre: t.genre,
-        }));
+      } catch (err) {
+        console.warn('[adminService] Failed to load tracks from Supabase:', err);
       }
     }
 
-    // If DB is truly empty, return empty — no phantom in-memory tracks
     return [];
   },
 
@@ -304,51 +291,32 @@ export const adminService = {
     const id = `trk_${Date.now()}`;
     const newTrack: Track = { id, ...track };
 
-    // Primary: use admin API (bypasses RLS)
-    try {
-      const res = await fetch('/api/admin?action=add-track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTrack),
-      });
-      if (res.ok) return newTrack;
-    } catch {
-      // fall through
-    }
-
-    // Fallback: direct Supabase insert
     if (isSupabaseConfigured && supabase) {
-      await supabase.from('tracks').insert({
+      const { error } = await supabase.from('tracks').insert({
         id: newTrack.id,
         title: newTrack.title,
         artist: newTrack.artist,
         album: newTrack.album,
         artwork: newTrack.artwork,
-        duration: newTrack.duration,
+        duration: Math.max(1, Math.round(newTrack.duration)),
         audio_url: newTrack.audioUrl,
         genre: newTrack.genre,
       });
+      if (error) {
+        console.error('[adminService] Failed to insert track:', error);
+        throw new Error(error.message);
+      }
     }
 
     return newTrack;
   },
 
   async deleteTrack(trackId: string): Promise<boolean> {
-    // Primary: use admin API (bypasses RLS, handles FK cleanup)
-    try {
-      const res = await fetch(`/api/admin?action=delete-track&id=${encodeURIComponent(trackId)}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) return true;
-    } catch {
-      // fall through
-    }
-
-    // Fallback: direct Supabase delete
     if (isSupabaseConfigured && supabase) {
-      const { error, data } = await supabase.from('tracks').delete().eq('id', trackId).select();
+      // Clean up any queue items referencing this track first to maintain integrity
+      await supabase.from('queue_items').delete().eq('track_id', trackId);
+      const { error } = await supabase.from('tracks').delete().eq('id', trackId);
       if (error) throw new Error(error.message);
-      if (!data || data.length === 0) throw new Error('Track not found or permission denied');
       return true;
     }
     return true;
@@ -360,16 +328,26 @@ export const adminService = {
    * idempotent (upsert on id).
    */
   async seedCuratedTracks(): Promise<boolean> {
-    try {
-      const res = await fetch('/api/admin?action=seed-tracks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracks: CURATED_OPEN_TRACKS }),
-      });
-      return res.ok;
-    } catch {
-      return false;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const rows = CURATED_OPEN_TRACKS.map((t) => ({
+          id: t.id,
+          title: t.title,
+          artist: t.artist,
+          album: t.album,
+          artwork: t.artwork,
+          duration: Math.max(1, Math.round(t.duration)),
+          audio_url: t.audioUrl,
+          genre: t.genre,
+        }));
+        const { error } = await supabase.from('tracks').upsert(rows, { onConflict: 'id' });
+        if (!error) return true;
+        console.warn('[adminService] seedCuratedTracks error:', error);
+      } catch (err) {
+        console.warn('[adminService] seedCuratedTracks exception:', err);
+      }
     }
+    return false;
   },
 
   // ─── Platform Analytics ─────────────────────────────────────────────────

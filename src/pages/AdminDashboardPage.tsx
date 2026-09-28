@@ -62,7 +62,8 @@ export const AdminDashboardPage: React.FC = () => {
   const [showStudioUploadModal, setShowStudioUploadModal] = useState(false);
 
   const handleStudioTrackUploaded = (newTrack: Track) => {
-    setTracks((prev) => [newTrack, ...prev]);
+    setTracks((prev) => [newTrack, ...prev.filter((t) => t.id !== newTrack.id)]);
+    setStats((prev) => (prev ? { ...prev, totalTracks: (typeof prev.totalTracks === 'number' ? prev.totalTracks + 1 : 1) } : null));
     addToast(`Track "${newTrack.title}" added to catalog`, 'success');
   };
 
@@ -382,7 +383,7 @@ export const AdminDashboardPage: React.FC = () => {
                 <Music className="w-4 h-4 text-accent-amber" />
               </div>
               <p className="text-2xl sm:text-3xl font-bold text-text-primary font-display">
-                {stats?.totalTracks ?? tracks.length}
+                {tracks.length}
               </p>
               <p className="text-[11px] text-text-muted">
                 {settings.availableGenres.length} Genres configured
