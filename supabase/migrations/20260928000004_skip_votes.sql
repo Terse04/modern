@@ -1,7 +1,7 @@
 -- 20260928000004_skip_votes.sql
 
 create table public.room_skip_votes (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   room_id text references public.rooms(id) on delete cascade not null,
   track_id text references public.tracks(id) on delete cascade not null,
   profile_id text references public.profiles(id) on delete cascade not null,

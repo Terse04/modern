@@ -56,7 +56,7 @@ create policy "realtime_messages_insert_control" on realtime.messages
         (select settings->>'playbackPermissions' from public.rooms where id = split_part(topic, ':', 2)) = 'everyone'
         and exists (
           select 1 from public.room_members 
-          where room_id = split_part(topic, ':', 2) and user_id = auth.uid()
+          where room_id = split_part(topic, ':', 2) and user_id = auth.uid()::text
         )
       )
     )
@@ -69,6 +69,6 @@ create policy "realtime_messages_insert_social" on realtime.messages
     split_part(topic, ':', 3) = 'social'
     and exists (
       select 1 from public.room_members 
-      where room_id = split_part(topic, ':', 2) and user_id = auth.uid()
+      where room_id = split_part(topic, ':', 2) and user_id = auth.uid()::text
     )
   );

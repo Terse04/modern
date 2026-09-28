@@ -28,13 +28,9 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior-y: none;
 }
 
-/* Prevent rubber-banding on mobile browsers */
-html, body {
-  overflow-x: hidden;
-}
+/* Removed html, body overflow-x to prevent scrolling locks */
 
 /* PWA standalone mode — fill status bar area */
 @media all and (display-mode: standalone) {

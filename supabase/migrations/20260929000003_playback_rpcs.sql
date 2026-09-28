@@ -216,8 +216,8 @@ begin
   return jsonb_build_object('advanced', false, 'votes', v_vote_count, 'required', greatest(1, ceil(v_member_count::numeric / 2)));
 end;
 $$;
-revoke all on function public.vote_skip from public, anon;
-grant execute on function public.vote_skip to authenticated;
+revoke all on function public.vote_skip(text, bigint) from public, anon;
+grant execute on function public.vote_skip(text, bigint) to authenticated;
 
 
 -- Room Heartbeat
