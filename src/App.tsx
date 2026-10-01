@@ -51,7 +51,7 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg text-text-primary">
+    <div className="min-h-[100dvh] h-[100dvh] md:h-auto flex flex-col bg-bg text-text-primary">
       {!isRoomView && <Navbar />}
       <main className="flex-1 flex flex-col">
         <Suspense fallback={<PageLoader />}>

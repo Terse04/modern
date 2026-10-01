@@ -377,9 +377,9 @@ export const RoomPage: React.FC = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-start relative z-10 px-4 pt-2 pb-3 sm:pt-3 sm:pb-4 max-w-5xl mx-auto w-full min-h-0 gap-3 sm:gap-4 overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center justify-between relative z-10 px-3 pt-1 pb-4 sm:px-4 sm:pt-3 sm:pb-4 max-w-5xl mx-auto w-full min-h-0 overflow-y-auto">
         {/* Center Stage: Artwork + Orbiting Participants */}
-        <div className="relative w-full max-w-[190px] sm:max-w-[230px] md:max-w-[260px] lg:max-w-[290px] mx-auto flex-shrink-0">
+        <div className="relative w-full max-w-[150px] sm:max-w-[220px] md:max-w-[260px] lg:max-w-[290px] mx-auto flex-shrink min-h-[150px] my-auto mt-2 sm:mt-auto">
           {/* Orbiting Participants (Desktop) */}
           <OrbitingParticipants members={members} isMobile={false} />
 
@@ -401,7 +401,7 @@ export const RoomPage: React.FC = () => {
         </div>
 
         {/* Bottom Stage: Track Info + Mobile Participants + HUD + Progress + Controls */}
-        <div className="w-full flex flex-col items-center gap-2 sm:gap-2.5 flex-shrink-0 pb-safe">
+        <div className="w-full flex flex-col items-center gap-1.5 sm:gap-2.5 flex-shrink-0 pb-6 sm:pb-2">
           {/* Track Info */}
           <div className="text-center space-y-0.5 max-w-sm sm:max-w-md px-2">
             <h2 className="text-base sm:text-xl font-bold tracking-tight text-text-primary font-display truncate">
@@ -437,7 +437,7 @@ export const RoomPage: React.FC = () => {
               style={{ left: `${duration > 0 ? (position / duration) * 100 : 0}%`, transform: 'translate(-50%, -50%)' }}
             />
           </div>
-          <div className="flex items-center justify-between text-[11px] text-text-muted tabular-nums">
+          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-text-muted tabular-nums">
             <span>{formatTime(position)}</span>
             <span>{formatTime(duration)}</span>
           </div>

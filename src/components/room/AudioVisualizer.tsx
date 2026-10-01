@@ -37,7 +37,7 @@ export const AuraModeSelector: React.FC<{
         title="Spectrum Bars"
       >
         <Activity className="w-2.5 h-2.5" />
-        <span>Ring</span>
+        <span className="hidden sm:inline">Ring</span>
       </button>
       <button
         onClick={() => onChange('aura')}
@@ -47,7 +47,7 @@ export const AuraModeSelector: React.FC<{
         title="Flowing Aura Wave"
       >
         <Waves className="w-2.5 h-2.5" />
-        <span>Wave</span>
+        <span className="hidden sm:inline">Wave</span>
       </button>
       <button
         onClick={() => onChange('particles')}
@@ -57,7 +57,7 @@ export const AuraModeSelector: React.FC<{
         title="Audio Sparks"
       >
         <Sparkles className="w-2.5 h-2.5" />
-        <span>Sparks</span>
+        <span className="hidden sm:inline">Sparks</span>
       </button>
     </div>
   );
@@ -252,7 +252,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   }, [isPlaying, mode]);
 
   return (
-    <div className="absolute -inset-10 sm:-inset-16 pointer-events-none z-0 flex items-center justify-center">
+    <div className="absolute -inset-6 sm:-inset-12 pointer-events-none z-0 flex items-center justify-center">
       {/* Dynamic Audio Reactive Background Bloom */}
       <div
         className="absolute w-[110%] h-[110%] rounded-full transition-all duration-150 ease-out filter blur-[60px] pointer-events-none"
