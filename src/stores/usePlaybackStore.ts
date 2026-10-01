@@ -360,14 +360,6 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       // BUT allow revision 0 -> any (initial bootstrap)
       if (state.revision > 0 && remoteState.revision <= state.revision) return;
 
-      // Host ignores realtime updates (they are the source of truth)
-      if (state.isHost) {
-        // Just keep revision in sync
-        if (remoteState.revision > state.revision) {
-          set({ revision: remoteState.revision });
-        }
-        return;
-      }
 
       set({ revision: remoteState.revision });
 

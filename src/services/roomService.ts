@@ -117,12 +117,15 @@ export const roomService = {
     maxListeners?: number;
     host?: User;
   }): Promise<Room> {
-    const slug = data.name
+    const baseSlug = data.name
       .toLowerCase()
       .trim()
       .replace(/^#+/, '')
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || `room-${Date.now().toString(36)}`;
+      .replace(/^-+|-+$/g, '') || 'room';
+    // Random suffix prevents PK collisions when two users pick the same name
+    const suffix = Math.random().toString(36).slice(2, 8);
+    const slug = `${baseSlug.slice(0, 48)}-${suffix}`;
 
     const hostUser = data.host || DEFAULT_HOST_FALLBACK;
 
@@ -481,13 +484,17 @@ export const roomService = {
         if (prof) adderId = prof.id;
       }
 
-      await supabase.from('queue_items').insert({
+      const { error } = await supabase.from('queue_items').insert({
         id: newItem.id,
         room_id: roomId,
         track_id: track.id,
         added_by_id: adderId,
         votes: 1,
       });
+      if (error) {
+        console.error('[roomService] Failed to insert queue item:', error);
+        throw new Error(error.message);
+      }
     }
 
     if (!queueStore[roomId]) {

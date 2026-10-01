@@ -2,6 +2,7 @@ import { Track } from '../types';
 import { CURATED_OPEN_TRACKS } from './openMusicService';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { storageService } from './storageService';
+import { resolveStorageUrl } from '../utils/resolveStorageUrl';
 
 export const trackService = {
   async getAvailableTracks(): Promise<Track[]> {
@@ -16,24 +17,24 @@ export const trackService = {
       try {
         const { data, error } = await client.from('tracks').select('*').order('created_at', { ascending: false });
         if (!error && data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          data.forEach((t: any) => {
-            let audioUrl = t.audio_url || '';
-            if (audioUrl && !audioUrl.startsWith('http') && !audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) {
-              const { data: pubData } = client.storage.from('tracks').getPublicUrl(audioUrl);
-              if (pubData?.publicUrl) audioUrl = pubData.publicUrl;
-            }
-            map.set(t.id, {
-              id: t.id,
-              title: t.title,
-              artist: t.artist,
-              album: t.album,
-              artwork: t.artwork,
-              duration: t.duration,
-              audioUrl,
-              genre: t.genre,
-            });
-          });
+          // Resolve storage paths to signed URLs in parallel
+          await Promise.all(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            data.map(async (t: any) => {
+              const audioUrl = await resolveStorageUrl(t.audio_url || '');
+              const artwork = t.artwork ? await resolveStorageUrl(t.artwork) : t.artwork;
+              map.set(t.id, {
+                id: t.id,
+                title: t.title,
+                artist: t.artist,
+                album: t.album,
+                artwork,
+                duration: t.duration,
+                audioUrl,
+                genre: t.genre,
+              });
+            })
+          );
         }
       } catch (err) {
         console.warn('[trackService] Supabase tracks fetch failed, using fallback:', err);
@@ -59,17 +60,14 @@ export const trackService = {
       try {
         const { data, error } = await client.from('tracks').select('*').eq('id', id).single();
         if (!error && data) {
-          let audioUrl = data.audio_url || '';
-          if (audioUrl && !audioUrl.startsWith('http') && !audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) {
-            const { data: pubData } = client.storage.from('tracks').getPublicUrl(audioUrl);
-            if (pubData?.publicUrl) audioUrl = pubData.publicUrl;
-          }
+          const audioUrl = await resolveStorageUrl(data.audio_url || '');
+          const artwork = data.artwork ? await resolveStorageUrl(data.artwork) : data.artwork;
           return {
             id: data.id,
             title: data.title,
             artist: data.artist,
             album: data.album,
-            artwork: data.artwork,
+            artwork,
             duration: data.duration,
             audioUrl,
             genre: data.genre,

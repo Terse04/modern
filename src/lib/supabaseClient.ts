@@ -11,7 +11,6 @@ function isValidUrl(url: unknown): boolean {
 const candidateUrls: (string | undefined)[] = [
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.NEXT_PUBLIC_SUPABASE_URL,
-  (import.meta.env as Record<string, string | undefined>).SUPABASE_URL,
 ];
 
 const candidateKeys: (string | undefined)[] = [
@@ -19,8 +18,6 @@ const candidateKeys: (string | undefined)[] = [
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
   import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-  (import.meta.env as Record<string, string | undefined>).SUPABASE_ANON_KEY,
-  (import.meta.env as Record<string, string | undefined>).SUPABASE_PUBLISHABLE_KEY,
 ];
 
 const supabaseUrl = (candidateUrls.find(isValidUrl) || '').trim();

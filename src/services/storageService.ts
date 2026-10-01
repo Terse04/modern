@@ -110,10 +110,8 @@ export const storageService = {
         const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         
         const { data: sessionData } = await supabase.auth.getSession();
-        const { data: profileData } = await supabase.from('profiles').select('id').eq('auth_user_id', sessionData.session?.user?.id || '').single();
-        const profileId = profileData?.id || 'guest';
-        
-        const storagePath = `${profileId}/${Date.now()}_${cleanName}`;
+        const authUserId = sessionData.session?.user?.id || 'guest';
+        const storagePath = `${authUserId}/${Date.now()}_${cleanName}`;
 
         onProgress?.(60);
         // Try direct upload first
@@ -125,12 +123,17 @@ export const storageService = {
           });
 
         if (!uploadErr) {
-          const { data: audioUrlData } = supabase.storage.from('tracks').getPublicUrl(storagePath);
-          audioUrl = audioUrlData?.publicUrl || storagePath;
+          // Store the raw storage path — the bucket is private, so
+          // getPublicUrl() would return a 403 URL. Paths are resolved to
+          // signed URLs at read time via resolveStorageUrl().
+          audioUrl = storagePath;
         } else {
           // If direct upload failed due to RLS, request a signed upload URL from serverless API
           try {
-            const apiRes = await fetch(`/api/upload-url?path=${encodeURIComponent(storagePath)}`);
+            const accessToken = sessionData.session?.access_token;
+            const apiRes = await fetch(`/api/upload-url?path=${encodeURIComponent(storagePath)}`, {
+              headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+            });
             if (apiRes.ok) {
               const signData = await apiRes.json();
               if (signData?.token) {
@@ -138,8 +141,7 @@ export const storageService = {
                   .from('tracks')
                   .uploadToSignedUrl(storagePath, signData.token, file);
                 if (!signUpErr) {
-                  const { data: audioUrlData } = supabase.storage.from('tracks').getPublicUrl(storagePath);
-                  audioUrl = audioUrlData?.publicUrl || storagePath;
+                  audioUrl = storagePath;
                 }
               }
             }
@@ -151,14 +153,13 @@ export const storageService = {
         // Upload custom artwork if provided
         if (artworkFile) {
           const artExt = artworkFile.name.split('.').pop() || 'jpg';
-          const artPath = `artwork/${profileId}_${Date.now()}_art.${artExt}`;
+          const artPath = `${authUserId}/artwork_${Date.now()}_art.${artExt}`;
           const { error: artErr } = await supabase.storage.from('tracks').upload(artPath, artworkFile, {
             cacheControl: '3600',
             upsert: true,
           });
           if (!artErr) {
-            const { data: artUrlData } = supabase.storage.from('tracks').getPublicUrl(artPath);
-            artworkUrl = artUrlData.publicUrl;
+            artworkUrl = artPath;
           }
         }
       } catch (e) {

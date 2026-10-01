@@ -1,6 +1,7 @@
 import { User, Room, Track, PlatformSettings, VisibilityType } from '../types';
 import { CURATED_OPEN_TRACKS } from './openMusicService';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { resolveStorageUrl } from '../utils/resolveStorageUrl';
 
 const SETTINGS_STORAGE_KEY = 'modern_platform_settings';
 
@@ -260,24 +261,21 @@ export const adminService = {
       try {
         const { data, error } = await client.from('tracks').select('*').order('created_at', { ascending: false });
         if (!error && data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return data.map((t: any) => {
+          return Promise.all(data.map(async (t: any) => {
             let audioUrl = t.audio_url || '';
-            if (audioUrl && !audioUrl.startsWith('http') && !audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) {
-              const { data: pubData } = client.storage.from('tracks').getPublicUrl(audioUrl);
-              if (pubData?.publicUrl) audioUrl = pubData.publicUrl;
-            }
+            audioUrl = await resolveStorageUrl(audioUrl);
+            const artwork = t.artwork ? await resolveStorageUrl(t.artwork) : t.artwork;
             return {
               id: t.id,
               title: t.title,
               artist: t.artist,
               album: t.album,
-              artwork: t.artwork,
+              artwork,
               duration: t.duration,
               audioUrl,
               genre: t.genre,
             };
-          });
+          }));
         }
       } catch (err) {
         console.warn('[adminService] Failed to load tracks from Supabase:', err);
