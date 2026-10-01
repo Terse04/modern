@@ -18,47 +18,103 @@ export const HomePage: React.FC = () => {
     <div className="w-full flex flex-col items-center pb-24 md:pb-12">
       
       {/* Hero Section */}
-      <section className="relative w-full overflow-hidden flex flex-col items-center pt-24 pb-32 px-4 sm:px-6 lg:px-8 border-b border-white/5">
+      <section className="relative w-full overflow-hidden pt-20 pb-32 px-4 sm:px-6 lg:px-8 border-b border-white/5 min-h-[90vh] flex items-center">
         <div className="absolute inset-0 bg-grid-pattern opacity-60 pointer-events-none" />
         
         {/* Animated ambient blobs */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[400px] bg-accent-emerald/20 filter blur-[120px] rounded-[100%] pointer-events-none mix-blend-screen animate-pulse-subtle" />
+        <div className="absolute top-0 left-0 w-full max-w-3xl h-[600px] bg-accent-emerald/10 filter blur-[120px] rounded-[100%] pointer-events-none mix-blend-screen animate-pulse-subtle" />
+        <div className="absolute bottom-0 right-0 w-full max-w-3xl h-[600px] bg-accent-cyan/10 filter blur-[120px] rounded-[100%] pointer-events-none mix-blend-screen animate-pulse-subtle" style={{ animationDelay: '2s' }} />
 
-        <div className="relative z-10 flex flex-col items-center text-center max-w-4xl mx-auto space-y-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-premium border-accent-emerald/30 text-xs font-bold text-accent-emerald uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.15)] animate-fade-up">
-            <Sparkles className="w-4 h-4" />
-            <span className="mt-0.5">The New Standard in Social Listening</span>
+        <div className="max-w-7xl mx-auto w-full relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          
+          {/* Left Text */}
+          <div className="flex flex-col items-start text-left space-y-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-premium border-accent-emerald/30 text-xs font-bold text-accent-emerald uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.15)] animate-fade-up">
+              <Sparkles className="w-4 h-4" />
+              <span className="mt-0.5">The New Standard in Social Listening</span>
+            </div>
+
+            <h1 className="text-6xl sm:text-7xl lg:text-[6.5rem] font-black tracking-tighter text-white font-display leading-[0.95] drop-shadow-2xl animate-fade-up" style={{ animationDelay: '0.1s' }}>
+              LISTEN
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-accent-cyan to-accent-emerald inline-block mt-2">
+                TOGETHER.
+              </span>
+            </h1>
+            
+            <p className="text-text-secondary text-lg sm:text-2xl max-w-lg leading-relaxed font-medium animate-fade-up" style={{ animationDelay: '0.2s' }}>
+              Experience the ultimate browser-first social listening platform. Create a room, invite friends, and play music in perfect sync.
+            </p>
+            
+            <div className="flex flex-wrap items-center gap-4 pt-4 animate-fade-up" style={{ animationDelay: '0.3s' }}>
+              <Link
+                to="/create"
+                className="group relative inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-bold text-base rounded-full hover:bg-accent-cream transition-all shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] hover:-translate-y-1 active:scale-[0.97] overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+                <Radio className="w-5 h-5 relative z-10" />
+                <span className="relative z-10">Start Broadcasting</span>
+                <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link
+                to="/rooms"
+                className="inline-flex items-center gap-3 px-8 py-4 glass-premium text-white font-semibold text-base rounded-full hover:bg-white/10 transition-all hover:-translate-y-1 active:scale-[0.97]"
+              >
+                <Headphones className="w-5 h-5" />
+                Explore Rooms
+              </Link>
+            </div>
           </div>
 
-          <h1 className="text-6xl sm:text-8xl lg:text-[7rem] font-black tracking-tighter text-white font-display leading-[0.9] drop-shadow-2xl animate-fade-up" style={{ animationDelay: '0.1s' }}>
-            LISTEN
-            <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-accent-cyan to-accent-emerald inline-block mt-2">
-              TOGETHER.
-            </span>
-          </h1>
-          
-          <p className="text-text-secondary text-lg sm:text-2xl max-w-2xl leading-relaxed font-medium text-balance animate-fade-up" style={{ animationDelay: '0.2s' }}>
-            Experience the ultimate browser-first social listening platform. Create a room, invite friends, and play music in perfect sync with crystal clear quality.
-          </p>
-          
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4 animate-fade-up" style={{ animationDelay: '0.3s' }}>
-            <Link
-              to="/create"
-              className="group relative inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-bold text-base rounded-full hover:bg-accent-cream transition-all shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] hover:-translate-y-1 active:scale-[0.97] overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
-              <Radio className="w-5 h-5 relative z-10" />
-              <span className="relative z-10">Start Broadcasting</span>
-              <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link
-              to="/rooms"
-              className="inline-flex items-center gap-3 px-8 py-4 glass-premium text-white font-semibold text-base rounded-full hover:bg-white/10 transition-all hover:-translate-y-1 active:scale-[0.97]"
-            >
-              <Headphones className="w-5 h-5" />
-              Explore Rooms
-            </Link>
+          {/* Right Visual: Creative 3D Vinyl & Orbiting Elements */}
+          <div className="relative w-full h-[500px] items-center justify-center hidden lg:flex animate-fade-up" style={{ perspective: '1000px', animationDelay: '0.4s' }}>
+            {/* The 3D Scene Container */}
+            <div className="relative w-[360px] h-[360px] hover:scale-105 transition-transform duration-1000 ease-out" style={{ transform: 'rotateX(25deg) rotateY(-15deg) rotateZ(5deg)', transformStyle: 'preserve-3d' }}>
+              
+              {/* Ambient Glowing Rings */}
+              <div className="absolute inset-[-60px] rounded-full border border-accent-emerald/20 shadow-[0_0_80px_rgba(16,185,129,0.3)] animate-pulse-subtle" style={{ transform: 'translateZ(-20px)' }} />
+              <div className="absolute inset-[-120px] rounded-full border border-accent-cyan/15 border-dashed animate-spin-slow" style={{ animationDuration: '30s', transform: 'translateZ(-40px)' }} />
+
+              {/* Main Vinyl Record */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#181818] to-[#050505] border-[14px] border-[#222] shadow-[20px_30px_60px_rgba(0,0,0,0.9)] animate-spin-slow flex items-center justify-center" style={{ animationDuration: '8s' }}>
+                 {/* Grooves */}
+                 <div className="absolute inset-4 rounded-full border border-white/5" />
+                 <div className="absolute inset-10 rounded-full border border-white/5" />
+                 <div className="absolute inset-16 rounded-full border border-white/5" />
+                 <div className="absolute inset-24 rounded-full border border-white/5" />
+                 
+                 {/* Center Label */}
+                 <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-accent-emerald via-accent-cyan to-blue-500 flex flex-col items-center justify-center relative overflow-hidden shadow-inner border-2 border-[#111]">
+                   <div className="absolute inset-0 bg-black/10 mix-blend-overlay" />
+                   {/* Center Spindle Hole */}
+                   <div className="w-4 h-4 rounded-full bg-[#111] shadow-inner relative z-10 ring-4 ring-black/30" />
+                   <span className="absolute bottom-5 text-[9px] font-black text-black/70 uppercase tracking-[0.3em] z-10 font-display">Modern</span>
+                 </div>
+              </div>
+
+              {/* Orbiting Avatar Listeners */}
+              <div className="absolute inset-[-90px] animate-spin-slow" style={{ animationDuration: '20s', animationDirection: 'reverse', transformStyle: 'preserve-3d', transform: 'translateZ(30px)' }}>
+                {[
+                  { pos: 'top-0 left-1/2 -ml-8', seed: 'Felix', delay: '0s', color: 'border-accent-emerald' },
+                  { pos: 'bottom-0 left-1/2 -ml-8', seed: 'Aneka', delay: '-5s', color: 'border-accent-cyan' },
+                  { pos: 'top-1/2 left-0 -mt-8', seed: 'Luna', delay: '-10s', color: 'border-accent-cream' },
+                  { pos: 'top-1/2 right-0 -mt-8', seed: 'Oliver', delay: '-15s', color: 'border-white' }
+                ].map((listener, i) => (
+                  <div key={i} className={`absolute ${listener.pos} w-16 h-16 rounded-full border-4 ${listener.color} bg-bg overflow-hidden shadow-[0_10px_20px_rgba(0,0,0,0.5)] animate-spin-slow`} style={{ animationDuration: '20s' }}>
+                    <img src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${listener.seed}`} className="w-full h-full object-cover" alt="Listener" />
+                  </div>
+                ))}
+              </div>
+              
+              {/* Floating Music Notes escaping the record */}
+              <div className="absolute -top-16 -right-8 text-accent-emerald animate-bounce" style={{ animationDuration: '2.5s', transform: 'translateZ(60px)' }}>
+                <Music2 className="w-12 h-12 filter drop-shadow-[0_0_20px_rgba(16,185,129,0.8)]" />
+              </div>
+              <div className="absolute -bottom-8 -left-12 text-accent-cyan animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '0.5s', transform: 'translateZ(40px)' }}>
+                <Music2 className="w-9 h-9 filter drop-shadow-[0_0_20px_rgba(6,182,212,0.8)]" />
+              </div>
+
+            </div>
           </div>
         </div>
       </section>
