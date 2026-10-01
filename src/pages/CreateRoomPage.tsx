@@ -13,7 +13,6 @@ import {
   X,
   Check,
 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
 import { useToastStore } from '../components/ui/Toast';
 import { roomService } from '../services/roomService';
 import { roomLimitService } from '../services/roomLimitService';
@@ -169,14 +168,22 @@ export const CreateRoomPage: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-lg mx-auto px-4 sm:px-6 py-10 pb-24 md:pb-10">
-      <div className="mb-6 space-y-3">
-        <h1 className="text-2xl font-bold tracking-tight text-text-primary font-display uppercase">
+    <div className="max-w-xl mx-auto px-4 sm:px-6 py-10 pb-24 md:pb-10 relative">
+      {/* Ambient background element */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-accent-cyan/5 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="mb-8 text-center relative z-10">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gradient-premium font-display">
           Create a Room
         </h1>
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-text-secondary mt-2">
           Set up a listening space for you and your friends. Joining rooms is always unlimited!
         </p>
+      </div>
+
+      <div className="relative glass-premium rounded-3xl p-6 md:p-8 space-y-6 overflow-hidden">
+        {/* Animated Shimmer Top Border */}
+        <div className="absolute top-0 left-0 right-0 h-[1px] border-shimmer" />
 
         {/* Room Creation Allowance Pill */}
         {isAuthenticated ? (
@@ -204,29 +211,26 @@ export const CreateRoomPage: React.FC = () => {
 
         {/* Limit reached alert banner */}
         {!usage.canCreate && (
-          <div className="p-4 rounded-xl bg-accent-crimson/15 border border-accent-crimson/40 space-y-2">
-            <div className="flex items-center gap-2 text-accent-crimson font-bold text-xs">
+          <div className="p-4 rounded-2xl bg-accent-crimson/10 border border-accent-crimson/30 space-y-2 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+            <div className="flex items-center gap-2 text-accent-crimson font-bold text-sm">
               <Flame className="w-4 h-4" />
-              <span>Daily Guest Limit Reached (5 of 5 rooms created today)</span>
+              <span>Daily Guest Limit Reached (5 of 5)</span>
             </div>
             <p className="text-xs text-text-secondary leading-relaxed">
               You have used all 5 free guest room creations for today. Sign in or create a free account to unlock unlimited room hosting immediately!
             </p>
             <Link
               to="/login?reason=limit&redirect=/create"
-              className="inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-lg bg-accent-cream text-bg font-bold text-xs hover:bg-accent-creamHover transition-colors mt-1"
+              className="inline-flex items-center gap-2 py-2 px-4 rounded-xl bg-accent-cream text-bg font-bold text-xs hover:bg-white transition-all shadow-[0_0_15px_rgba(234,229,219,0.3)] mt-2"
             >
               <span>Sign In / Create Account</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         )}
-      </div>
-
-      <div className="space-y-6">
         {/* Room Name */}
         <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">
+          <label className="block text-[11px] font-bold text-text-secondary mb-1.5 uppercase tracking-widest">
             Room Name
           </label>
           <input
@@ -234,38 +238,38 @@ export const CreateRoomPage: React.FC = () => {
             placeholder="e.g. Late Night Coding"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full bg-surface-elevated border border-border rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-focus transition-colors"
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cream/50 focus:ring-1 focus:ring-accent-cream/30 transition-all shadow-inner"
             maxLength={50}
           />
         </div>
 
         {/* Description */}
         <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1.5 uppercase tracking-wider">
+          <label className="block text-[11px] font-bold text-text-secondary mb-1.5 uppercase tracking-widest">
             Description
-            <span className="text-text-muted ml-1">(optional)</span>
+            <span className="text-text-muted ml-1 font-normal capitalize">(optional)</span>
           </label>
           <textarea
             placeholder="What kind of vibe?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="w-full bg-surface-elevated border border-border rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-focus transition-colors resize-none"
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cream/50 focus:ring-1 focus:ring-accent-cream/30 transition-all resize-none shadow-inner"
             maxLength={200}
           />
         </div>
 
         {/* Artwork Upload Zone */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-medium text-text-secondary uppercase tracking-wider">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-widest">
               Room Artwork / Cover
             </label>
             {artwork && (
               <button
                 type="button"
                 onClick={() => setArtwork('')}
-                className="text-[11px] text-accent-crimson hover:underline flex items-center gap-1"
+                className="text-[11px] text-accent-crimson hover:text-red-400 flex items-center gap-1 font-bold"
               >
                 <X className="w-3 h-3" />
                 Remove
@@ -283,22 +287,22 @@ export const CreateRoomPage: React.FC = () => {
 
           {artwork ? (
             /* Selected Artwork Preview */
-            <div className="relative rounded-2xl overflow-hidden border border-border group bg-surface-elevated">
+            <div className="relative rounded-2xl overflow-hidden border border-white/20 group bg-black/50 shadow-artwork-glow">
               <div className="aspect-[21/9] w-full relative overflow-hidden">
                 <img
                   src={artwork}
                   alt="Room cover preview"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-4 justify-between">
-                  <div className="flex items-center gap-2 text-white text-xs font-medium">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex items-end p-4 justify-between">
+                  <div className="flex items-center gap-2 text-white text-xs font-bold drop-shadow-md">
                     <Check className="w-4 h-4 text-accent-emerald" />
                     <span>Custom Artwork Selected</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 rounded-lg bg-surface/90 hover:bg-surface text-text-primary text-xs font-medium border border-border backdrop-blur-sm transition-all"
+                    className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold border border-white/30 backdrop-blur-md transition-all btn-glow"
                   >
                     Change
                   </button>
@@ -312,10 +316,10 @@ export const CreateRoomPage: React.FC = () => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-2xl p-7 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group ${
+              className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-4 transition-all duration-300 cursor-pointer group ${
                 isDragging
-                  ? 'border-accent-cream bg-accent-cream/10 scale-[1.01]'
-                  : 'border-border hover:border-accent-cream/50 bg-surface-elevated/40 hover:bg-surface-elevated/70'
+                  ? 'border-accent-cream bg-accent-cream/5 scale-[1.02] shadow-[0_0_30px_rgba(234,229,219,0.1)]'
+                  : 'border-white/10 hover:border-accent-cream/50 bg-black/20 hover:bg-black/40'
               }`}
             >
               <div className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -374,24 +378,24 @@ export const CreateRoomPage: React.FC = () => {
 
         {/* Visibility */}
         <div>
-          <label className="block text-xs font-medium text-text-secondary mb-2.5 uppercase tracking-wider">
-            Visibility / Public
+          <label className="block text-[11px] font-bold text-text-secondary mb-2.5 uppercase tracking-widest">
+            Visibility & Access
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-3">
             {visibilityOptions.map((opt) => {
               const Icon = opt.icon;
               return (
                 <button
                   key={opt.value}
                   onClick={() => setVisibility(opt.value)}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-center transition-all ${
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-300 ${
                     visibility === opt.value
-                      ? 'bg-accent-cream/10 border-accent-cream/40 text-accent-cream'
-                      : 'bg-surface-elevated border-border text-text-secondary hover:border-border-focus'
+                      ? 'bg-accent-cream text-black border-accent-cream shadow-[0_0_20px_rgba(234,229,219,0.2)] scale-[1.02]'
+                      : 'bg-black/30 border-white/10 text-text-secondary hover:border-white/30 hover:bg-black/50'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-xs font-medium">{opt.label}</span>
+                  <Icon className="w-5 h-5" />
+                  <span className="text-xs font-bold tracking-wide">{opt.label}</span>
                 </button>
               );
             })}
@@ -464,23 +468,26 @@ export const CreateRoomPage: React.FC = () => {
         {!usage.canCreate ? (
           <Link
             to="/login?reason=limit&redirect=/create"
-            className="w-full py-3.5 rounded-xl font-bold text-sm tracking-wide bg-accent-cream text-bg flex items-center justify-center gap-2 hover:bg-accent-creamHover transition-all shadow-glow-subtle"
+            className="w-full py-4 rounded-xl font-bold text-sm tracking-widest bg-white text-black flex items-center justify-center gap-2 hover:scale-105 transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.4)] mt-6"
           >
             <span>Sign In to Create Unlimited Rooms</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         ) : (
-          <Button
-            variant="primary"
-            size="lg"
-            className="w-full py-3.5 rounded-xl font-bold text-base tracking-wide"
+          <button
+            className="w-full py-4 rounded-2xl font-bold text-base tracking-widest bg-accent-cream text-black flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_0_20px_rgba(234,229,219,0.3)] hover:shadow-[0_0_30px_rgba(234,229,219,0.5)] hover:bg-white hover:scale-[1.02] mt-6 btn-glow disabled:opacity-50 disabled:pointer-events-none"
             onClick={handleCreate}
-            isLoading={isCreating}
-            disabled={!name.trim()}
+            disabled={!name.trim() || isCreating}
           >
-            <Radio className="w-5 h-5" />
-            Create room
-          </Button>
+            {isCreating ? (
+              <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-black" />
+            ) : (
+              <>
+                <Radio className="w-5 h-5" />
+                CREATE ROOM
+              </>
+            )}
+          </button>
         )}
       </div>
     </div>
