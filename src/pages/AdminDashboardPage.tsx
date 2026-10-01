@@ -282,34 +282,42 @@ export const AdminDashboardPage: React.FC = () => {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative">
+      {/* Ambient Background Element */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-accent-cream/5 blur-[120px] rounded-full pointer-events-none" />
+
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-6">
-        <div>
-          <div className="flex items-center gap-2 text-accent-cream">
-            <Shield className="w-5 h-5" />
-            <span className="text-xs font-bold uppercase tracking-wider">Control Plane</span>
+      <div className="relative glass-premium rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 overflow-hidden">
+        {/* Animated Shimmer Top Border */}
+        <div className="absolute top-0 left-0 right-0 h-[1px] border-shimmer" />
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 text-accent-cream mb-2">
+            <div className="p-1.5 rounded-lg bg-accent-cream/10 border border-accent-cream/20">
+              <Shield className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-widest text-accent-cream">Control Plane</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary font-display mt-1">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gradient-premium font-display mt-1">
             Admin Dashboard
           </h1>
-          <p className="text-xs text-text-muted mt-1">
+          <p className="text-sm text-text-muted mt-2 max-w-xl">
             Platform governance, user accounts, room moderation, audio catalog, and system limits.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 relative z-10">
           <button
             onClick={loadData}
             disabled={loading}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-xs font-medium text-text-secondary hover:text-text-primary hover:border-border-focus transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all btn-glow"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh Data</span>
           </button>
           <Link
             to="/rooms"
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-accent-cream text-bg text-xs font-semibold hover:bg-accent-creamHover transition-colors shadow-glow-subtle"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent-cream text-bg text-xs font-bold hover:bg-white transition-all shadow-[0_0_20px_rgba(234,229,219,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] hover:scale-105"
           >
             <Radio className="w-3.5 h-3.5" />
             <span>Go to Live Rooms</span>
@@ -318,107 +326,141 @@ export const AdminDashboardPage: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-border/40">
-        {[
-          { id: 'overview', label: 'Overview & Health', icon: Sliders },
-          { id: 'users', label: `Users (${users.length})`, icon: Users },
-          { id: 'rooms', label: `Rooms (${rooms.length})`, icon: Radio },
-          { id: 'tracks', label: `Audio Catalog (${tracks.length})`, icon: Music },
-          { id: 'settings', label: 'Types & Platform Limits', icon: Settings },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as 'overview' | 'users' | 'rooms' | 'tracks' | 'settings')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                isActive
-                  ? 'bg-accent-cream text-bg shadow-sm'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      <div className="relative z-10 w-full overflow-x-auto no-scrollbar pb-2">
+        <div className="flex items-center gap-1.5 p-1.5 glass-premium rounded-2xl w-max">
+          {[
+            { id: 'overview', label: 'Overview & Health', icon: Sliders },
+            { id: 'users', label: `Users (${users.length})`, icon: Users },
+            { id: 'rooms', label: `Rooms (${rooms.length})`, icon: Radio },
+            { id: 'tracks', label: `Audio Catalog (${tracks.length})`, icon: Music },
+            { id: 'settings', label: 'Types & Platform Limits', icon: Settings },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as 'overview' | 'users' | 'rooms' | 'tracks' | 'settings')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-300 ${
+                  isActive
+                    ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)]'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ─── TAB 1: OVERVIEW ────────────────────────────────────────────── */}
       {activeTab === 'overview' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6 animate-in fade-in duration-300">
           {/* Metrics Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-5 rounded-2xl bg-surface-elevated/50 border border-border/60 space-y-2">
-              <div className="flex items-center justify-between text-text-muted">
-                <span className="text-xs font-medium">Total Registered Users</span>
-                <Users className="w-4 h-4 text-accent-cream" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-6 rounded-3xl glass-premium space-y-4 group relative overflow-hidden transition-all duration-500 hover:-translate-y-1">
+              <div className="absolute inset-0 bg-gradient-to-br from-accent-cream/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                <div className="flex items-center justify-between text-text-muted">
+                  <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Total Users</span>
+                  <div className="p-2 rounded-xl bg-accent-cream/10 border border-accent-cream/20">
+                    <Users className="w-4 h-4 text-accent-cream" />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-4xl font-bold text-text-primary font-display tracking-tight">
+                    {stats?.totalUsers ?? users.length}
+                  </p>
+                  <p className="text-[11px] text-text-muted mt-1 font-medium">
+                    {stats?.adminUsers ?? 1} Admins · {stats?.bannedUsers ?? 0} Banned
+                  </p>
+                </div>
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-text-primary font-display">
-                {stats?.totalUsers ?? users.length}
-              </p>
-              <p className="text-[11px] text-text-muted">
-                {stats?.adminUsers ?? 1} Admins · {stats?.bannedUsers ?? 0} Banned
-              </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-surface-elevated/50 border border-border/60 space-y-2">
-              <div className="flex items-center justify-between text-text-muted">
-                <span className="text-xs font-medium">Active Listening Rooms</span>
-                <Radio className="w-4 h-4 text-accent-emerald" />
+            <div className="p-6 rounded-3xl glass-premium space-y-4 group relative overflow-hidden transition-all duration-500 hover:-translate-y-1">
+              <div className="absolute inset-0 bg-gradient-to-br from-accent-emerald/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                <div className="flex items-center justify-between text-text-muted">
+                  <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Active Rooms</span>
+                  <div className="p-2 rounded-xl bg-accent-emerald/10 border border-accent-emerald/20 shadow-[0_0_15px_rgba(16,185,129,0.2)] group-hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-shadow">
+                    <Radio className="w-4 h-4 text-accent-emerald" />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-4xl font-bold text-text-primary font-display tracking-tight">
+                    {stats?.liveRooms ?? 0}
+                  </p>
+                  <p className="text-[11px] text-accent-emerald flex items-center gap-1.5 font-bold mt-1">
+                    <span className="w-2 h-2 rounded-full bg-accent-emerald animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                    {stats?.totalListeners ?? 0} Total Active Listeners
+                  </p>
+                </div>
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-text-primary font-display">
-                {stats?.liveRooms ?? 0}
-              </p>
-              <p className="text-[11px] text-accent-emerald flex items-center gap-1 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-accent-emerald animate-pulse" />
-                {stats?.totalListeners ?? 0} Total Active Listeners
-              </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-surface-elevated/50 border border-border/60 space-y-2">
-              <div className="flex items-center justify-between text-text-muted">
-                <span className="text-xs font-medium">Audio Tracks in Catalog</span>
-                <Music className="w-4 h-4 text-accent-amber" />
+            <div className="p-6 rounded-3xl glass-premium space-y-4 group relative overflow-hidden transition-all duration-500 hover:-translate-y-1">
+              <div className="absolute inset-0 bg-gradient-to-br from-accent-amber/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                <div className="flex items-center justify-between text-text-muted">
+                  <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Audio Catalog</span>
+                  <div className="p-2 rounded-xl bg-accent-amber/10 border border-accent-amber/20">
+                    <Music className="w-4 h-4 text-accent-amber" />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-4xl font-bold text-text-primary font-display tracking-tight">
+                    {tracks.length}
+                  </p>
+                  <p className="text-[11px] text-text-muted mt-1 font-medium">
+                    {settings.availableGenres.length} Genres configured
+                  </p>
+                </div>
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-text-primary font-display">
-                {tracks.length}
-              </p>
-              <p className="text-[11px] text-text-muted">
-                {settings.availableGenres.length} Genres configured
-              </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-surface-elevated/50 border border-border/60 space-y-2">
-              <div className="flex items-center justify-between text-text-muted">
-                <span className="text-xs font-medium">Guest Daily Room Limit</span>
-                <Flame className="w-4 h-4 text-accent-crimson" />
+            <div className="p-6 rounded-3xl glass-premium space-y-4 group relative overflow-hidden transition-all duration-500 hover:-translate-y-1">
+              <div className="absolute inset-0 bg-gradient-to-br from-accent-crimson/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                <div className="flex items-center justify-between text-text-muted">
+                  <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Guest Limit</span>
+                  <div className="p-2 rounded-xl bg-accent-crimson/10 border border-accent-crimson/20">
+                    <Flame className="w-4 h-4 text-accent-crimson" />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-4xl font-bold text-text-primary font-display tracking-tight">
+                    {settings.guestDailyRoomLimit}
+                  </p>
+                  <p className="text-[11px] text-text-muted mt-1 font-medium">
+                    Rooms/day · Login required after
+                  </p>
+                </div>
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-text-primary font-display">
-                {settings.guestDailyRoomLimit}
-              </p>
-              <p className="text-[11px] text-text-muted">
-                Rooms/day · Login required after
-              </p>
             </div>
           </div>
 
           {/* Database Health Card */}
-          <div className="p-6 rounded-2xl bg-surface-elevated/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-accent-emerald/10 border border-accent-emerald/30 flex items-center justify-center text-accent-emerald">
-                <Database className="w-5 h-5" />
+          <div className="p-6 rounded-3xl glass-premium relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-6 group">
+            {/* Neon Accent Line */}
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-accent-emerald shadow-[0_0_15px_rgba(16,185,129,0.6)]" />
+            <div className="absolute inset-0 bg-gradient-to-r from-accent-emerald/5 to-transparent opacity-50" />
+            
+            <div className="relative z-10 flex items-center gap-4 pl-2">
+              <div className="w-12 h-12 rounded-2xl bg-accent-emerald/10 border border-accent-emerald/30 flex items-center justify-center text-accent-emerald shadow-[0_0_20px_rgba(16,185,129,0.15)] group-hover:scale-110 transition-transform duration-500">
+                <Database className="w-6 h-6" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-text-primary">Supabase Database Connection</h3>
-                  <span className="px-2 py-0.5 rounded-full bg-accent-emerald/15 text-[10px] text-accent-emerald border border-accent-emerald/30 font-medium">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-base font-bold text-text-primary">Supabase Database Connection</h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-accent-emerald/15 text-[10px] text-accent-emerald border border-accent-emerald/40 font-bold tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.2)]">
                     CONNECTED & LIVE
                   </span>
                 </div>
-                <p className="text-xs text-text-muted mt-0.5">
-                  Host: <code className="text-accent-cream">lvudbyfktpymccdskmtf.supabase.co</code> · Realtime Broadcasts Active
+                <p className="text-xs text-text-muted mt-1">
+                  Host: <code className="text-accent-cream bg-black/30 px-1.5 py-0.5 rounded border border-white/5">lvudbyfktpymccdskmtf.supabase.co</code> · Realtime Broadcasts Active
                 </p>
               </div>
             </div>
@@ -428,9 +470,9 @@ export const AdminDashboardPage: React.FC = () => {
                 roomLimitService.resetUsage();
                 addToast('Local guest daily usage reset for this browser');
               }}
-              className="px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-secondary hover:text-text-primary hover:border-border-focus transition-colors"
+              className="relative z-10 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-text-secondary hover:text-white hover:bg-white/10 hover:border-white/20 transition-all btn-glow whitespace-nowrap"
             >
-              Reset My Guest Limit Usage
+              Reset Guest Limit
             </button>
           </div>
         </div>
