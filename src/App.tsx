@@ -6,8 +6,11 @@ import { ToastContainer } from './components/ui/Toast';
 import { useAuthStore } from './stores/useAuthStore';
 
 // Route-level code splitting — each page is loaded on demand
-const DiscoverPage = React.lazy(() =>
-  import('./pages/DiscoverPage').then((m) => ({ default: m.DiscoverPage }))
+const HomePage = React.lazy(() =>
+  import('./pages/HomePage').then((m) => ({ default: m.HomePage }))
+);
+const RoomsPage = React.lazy(() =>
+  import('./pages/RoomsPage').then((m) => ({ default: m.RoomsPage }))
 );
 const RoomPage = React.lazy(() =>
   import('./pages/RoomPage').then((m) => ({ default: m.RoomPage }))
@@ -53,8 +56,8 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col">
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/" element={<DiscoverPage />} />
-            <Route path="/rooms" element={<DiscoverPage />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/rooms" element={<RoomsPage />} />
             <Route path="/room/:roomId" element={<RoomPage />} />
             <Route path="/create" element={<CreateRoomPage />} />
             <Route path="/join" element={<JoinRoomPage />} />

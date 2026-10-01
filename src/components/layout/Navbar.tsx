@@ -10,7 +10,7 @@ export const Navbar: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const navLinks = [
-    { name: 'Discover', href: '/', icon: Compass },
+    { name: 'Home', href: '/', icon: Compass },
     { name: 'Live Rooms', href: '/rooms', icon: Radio },
     { name: 'Create Room', href: '/create', icon: PlusCircle },
     { name: 'Join Room', href: '/join', icon: LogIn },

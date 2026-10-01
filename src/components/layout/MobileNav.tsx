@@ -10,7 +10,7 @@ export const MobileNav: React.FC = () => {
   if (isInsideRoom) return null;
 
   const links = [
-    { name: 'Discover', href: '/', icon: Compass },
+    { name: 'Home', href: '/', icon: Compass },
     { name: 'Rooms', href: '/rooms', icon: Radio },
     { name: 'Create', href: '/create', icon: PlusCircle },
     { name: 'Join', href: '/join', icon: LogIn },
