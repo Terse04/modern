@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Radio, Headphones, Sparkles, Music2, Users, ArrowRight, Zap, Globe2 } from 'lucide-react';
+import { Radio, Headphones, Sparkles, Music2, ArrowRight, Zap, Globe2 } from 'lucide-react';
 import { roomService } from '../services/roomService';
 import { Room } from '../types';
 import { LiveBadge } from '../components/ui/Badge';
@@ -34,7 +34,7 @@ export const HomePage: React.FC = () => {
               <span className="mt-0.5">The New Standard in Social Listening</span>
             </div>
 
-            <h1 className="text-6xl sm:text-7xl lg:text-[6.5rem] font-black tracking-tighter text-white font-display leading-[0.95] drop-shadow-2xl animate-fade-up" style={{ animationDelay: '0.1s' }}>
+            <h1 className="text-[clamp(2.75rem,8vw,5.5rem)] font-black tracking-[-0.03em] text-white font-display leading-[0.95] drop-shadow-2xl animate-fade-up" style={{ animationDelay: '0.1s' }}>
               LISTEN
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-accent-cyan to-accent-emerald inline-block mt-2">
@@ -53,15 +53,15 @@ export const HomePage: React.FC = () => {
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
                 <Radio className="w-5 h-5 relative z-10" />
-                <span className="relative z-10">Start Broadcasting</span>
+                <span className="relative z-10">Host a Room</span>
                 <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
                 to="/rooms"
-                className="inline-flex items-center gap-3 px-8 py-4 glass-premium text-white font-semibold text-base rounded-full hover:bg-white/10 transition-all hover:-translate-y-1 active:scale-[0.97]"
+                className="inline-flex items-center gap-3 px-8 py-4 surface text-white font-semibold text-base rounded-full hover:border-white/20 transition-all hover:-translate-y-1 active:scale-[0.97]"
               >
                 <Headphones className="w-5 h-5" />
-                Explore Rooms
+                Live Rooms
               </Link>
             </div>
           </div>
@@ -128,60 +128,64 @@ export const HomePage: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[280px]">
           {/* Large Bento Item */}
-          <div className="md:col-span-2 glass-premium rounded-[2.5rem] p-10 flex flex-col justify-end relative overflow-hidden group hover:border-white/20 transition-colors">
+          <div className="md:col-span-2 surface rounded-[2.5rem] p-10 flex flex-col justify-end relative overflow-hidden group hover:border-white/20 transition-all duration-300">
             <div className="absolute top-0 right-0 w-64 h-64 bg-accent-cyan/10 rounded-full filter blur-[80px] group-hover:bg-accent-cyan/20 transition-colors duration-500" />
-            <div className="absolute -top-10 -right-10 opacity-10 group-hover:opacity-20 transition-opacity duration-500 group-hover:rotate-12 transform">
-              <Users className="w-64 h-64 text-accent-cyan" />
-            </div>
             
             <div className="relative z-10 max-w-md">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-6 backdrop-blur-md border border-white/5">
+              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-6 backdrop-blur-md border border-white/5 shadow-inner">
                 <Zap className="w-7 h-7 text-accent-cyan" />
               </div>
               <h3 className="text-2xl font-bold text-white mb-3">Real-Time Sync Engine</h3>
               <p className="text-text-secondary leading-relaxed text-lg">
-                Experience ultra-low latency playback synchronization. When you pause or skip, the entire room follows instantly.
+                Experience ultra-low latency playback synchronization. When you pause, skip, or vote, the entire room moves in lockstep.
               </p>
             </div>
           </div>
 
           {/* Tall Bento Item */}
-          <div className="md:col-span-1 md:row-span-2 glass-premium rounded-[2.5rem] p-10 flex flex-col relative overflow-hidden group hover:border-white/20 transition-colors">
-            <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-accent-emerald/10 to-transparent" />
-            <div className="flex-1">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-6 backdrop-blur-md border border-white/5">
+          <div className="md:col-span-1 md:row-span-2 surface rounded-[2.5rem] p-10 flex flex-col relative overflow-hidden group hover:border-white/20 transition-all duration-300">
+            <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-accent-emerald/10 to-transparent pointer-events-none" />
+            <div>
+              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-6 backdrop-blur-md border border-white/5 shadow-inner">
                 <Music2 className="w-7 h-7 text-accent-emerald" />
               </div>
               <h3 className="text-2xl font-bold text-white mb-3">Audiophile Quality</h3>
               <p className="text-text-secondary leading-relaxed">
-                Stream in pristine quality. Upload your own tracks or choose from our curated open-source library without compromise.
+                Stream in pristine audio fidelity. Drop in tracks or pick from our curated open-source catalog without compression penalties.
               </p>
             </div>
-            {/* Visual decoration */}
-            <div className="mt-8 relative h-40 w-full rounded-2xl border border-white/10 bg-black/40 overflow-hidden flex items-center justify-center">
-              <div className="flex items-end gap-1.5 h-16 opacity-70">
-                {[40, 70, 30, 90, 50, 100, 60, 80, 40].map((h, i) => (
-                  <div key={i} className="w-2 bg-accent-emerald rounded-full animate-pulse-subtle" style={{ height: `${h}%`, animationDelay: `${i * 0.1}s` }} />
-                ))}
-              </div>
+            
+            {/* Animated Equalizer Bars */}
+            <div className="mt-auto flex h-24 items-end justify-center gap-1.5 rounded-2xl bg-black/40 border border-white/5 p-5 shadow-inner">
+              {[40, 75, 45, 95, 60, 100, 50, 85, 40].map((h, i) => (
+                <span
+                  key={i}
+                  style={{ height: `${h}%`, animationDelay: `${i * 90}ms` }}
+                  className="w-1.5 origin-bottom rounded-full bg-accent-emerald/90 motion-safe:animate-[eq_1.2s_ease-in-out_infinite]"
+                />
+              ))}
             </div>
           </div>
 
           {/* Standard Bento Item */}
-          <div className="md:col-span-1 glass-premium rounded-[2.5rem] p-8 flex flex-col justify-center relative overflow-hidden group hover:border-white/20 transition-colors">
+          <div className="md:col-span-1 surface rounded-[2.5rem] p-8 flex flex-col justify-center relative overflow-hidden group hover:border-white/20 transition-all duration-300">
             <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mb-5 backdrop-blur-md border border-white/5">
               <Globe2 className="w-6 h-6 text-accent-cream" />
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Global Community</h3>
             <p className="text-text-secondary leading-relaxed">
-              Open your room to the world or host private VIP listening parties.
+              Open your room to the world or host private listening parties with a single link.
             </p>
           </div>
 
-          {/* Standard Bento Item */}
-          <div className="md:col-span-1 glass-premium rounded-[2.5rem] p-8 flex flex-col justify-center relative overflow-hidden group hover:border-white/20 transition-colors text-center items-center">
-            <h3 className="text-4xl font-black text-white mb-2">99.9%</h3>
-            <p className="text-text-secondary font-medium uppercase tracking-wider text-sm">Uptime Reliability</p>
+          {/* Real Counter Bento Item */}
+          <div className="md:col-span-1 surface rounded-[2.5rem] p-8 flex flex-col justify-center relative overflow-hidden group hover:border-white/20 transition-all duration-300 text-center items-center">
+            <h3 className="text-4xl font-black text-white mb-2 tabular-nums">
+              {featuredRoom ? '1+' : '0'}
+            </h3>
+            <p className="text-text-secondary font-medium uppercase tracking-wider text-xs">
+              {featuredRoom ? 'Active Rooms Now' : 'Rooms Live · Be The First'}
+            </p>
           </div>
         </div>
       </section>
@@ -189,7 +193,7 @@ export const HomePage: React.FC = () => {
       {/* Featured Room Peek */}
       {featuredRoom && (
         <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative mb-12">
-          <div className="glass-premium rounded-[3rem] overflow-hidden border border-white/10 p-2 group">
+          <div className="surface rounded-[3rem] overflow-hidden p-2 group">
             <div className="relative rounded-[2.5rem] overflow-hidden bg-black">
               <img src={featuredRoom.artwork} className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-luminosity scale-105 group-hover:scale-100 transition-transform duration-1000" alt="" />
               <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/80 to-transparent z-10" />
@@ -201,13 +205,17 @@ export const HomePage: React.FC = () => {
                     <span className="text-sm font-bold text-accent-cyan tracking-widest uppercase">Now Featured</span>
                   </div>
                   <h2 className="text-4xl sm:text-5xl font-black text-white mb-4 leading-tight">{featuredRoom.name}</h2>
-                  <p className="text-text-secondary text-lg mb-8 line-clamp-2 leading-relaxed">{featuredRoom.description}</p>
+                  <p className="text-text-secondary text-lg mb-8 line-clamp-2 leading-relaxed">
+                    {featuredRoom.description && !featuredRoom.description.toLowerCase().includes('hello')
+                      ? featuredRoom.description
+                      : 'Curated soundscapes and real-time synchronized music room. Drop in and listen in lockstep.'}
+                  </p>
                   
                   <Link
                     to={`/room/${featuredRoom.id}`}
                     className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-bold rounded-full hover:bg-accent-cream transition-all hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] active:scale-[0.98]"
                   >
-                    Join Session <ArrowRight className="w-5 h-5" />
+                    Join Room <ArrowRight className="w-5 h-5" />
                   </Link>
                 </div>
                 

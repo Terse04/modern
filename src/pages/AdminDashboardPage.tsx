@@ -19,6 +19,8 @@ import {
   Play,
   Pause,
   UserCheck,
+  Copy,
+  Gauge,
 } from 'lucide-react';
 import { User, Room, Track, PlatformSettings, VisibilityType } from '../types';
 import { adminService } from '../services/adminService';
@@ -422,21 +424,34 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
 
             <div className="p-6 rounded-3xl glass-premium space-y-4 group relative overflow-hidden transition-all duration-500 hover:-translate-y-1">
-              <div className="absolute inset-0 bg-gradient-to-br from-accent-crimson/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-br from-accent-cyan/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="flex items-center justify-between text-text-muted">
                   <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Guest Limit</span>
-                  <div className="p-2 rounded-xl bg-accent-crimson/10 border border-accent-crimson/20">
-                    <Flame className="w-4 h-4 text-accent-crimson" />
+                  <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                    <Gauge className="w-4 h-4 text-accent-cream" />
                   </div>
                 </div>
-                <div className="mt-4">
-                  <p className="text-4xl font-bold text-text-primary font-display tracking-tight">
-                    {settings.guestDailyRoomLimit}
-                  </p>
-                  <p className="text-[11px] text-text-muted mt-1 font-medium">
-                    Rooms/day · Login required after
-                  </p>
+                <div className="mt-4 flex items-end justify-between">
+                  <div>
+                    <p className="text-4xl font-bold text-text-primary font-display tracking-tight tabular-nums">
+                      {settings.guestDailyRoomLimit}
+                    </p>
+                    <p className="text-[11px] text-text-muted mt-1 font-medium">
+                      Rooms/day · Login required after
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Reset local guest room limit for this browser?')) {
+                        roomLimitService.resetUsage();
+                        addToast('Local guest daily usage reset', 'success');
+                      }
+                    }}
+                    className="text-[11px] font-semibold text-text-muted hover:text-white px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                  >
+                    Reset Count
+                  </button>
                 </div>
               </div>
             </div>
@@ -454,26 +469,31 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h3 className="text-base font-bold text-text-primary">Supabase Database Connection</h3>
+                  <h3 className="text-base font-bold text-text-primary">Database Connection</h3>
                   <span className="px-2.5 py-0.5 rounded-full bg-accent-emerald/15 text-[10px] text-accent-emerald border border-accent-emerald/40 font-bold tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.2)]">
                     CONNECTED & LIVE
                   </span>
                 </div>
-                <p className="text-xs text-text-muted mt-1">
-                  Host: <code className="text-accent-cream bg-black/30 px-1.5 py-0.5 rounded border border-white/5">lvudbyfktpymccdskmtf.supabase.co</code> · Realtime Broadcasts Active
-                </p>
+                <div className="flex items-center gap-2 mt-1.5 text-xs text-text-muted">
+                  <span>Host:</span>
+                  <code className="text-accent-cream bg-black/40 px-2 py-0.5 rounded border border-white/5 font-mono text-[11px]">
+                    lvudby...supabase.co
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText('lvudbyfktpymccdskmtf.supabase.co');
+                      addToast('Database host copied to clipboard', 'info');
+                    }}
+                    className="p-1 text-text-muted hover:text-white transition-colors"
+                    title="Copy full host URL"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-white/20">·</span>
+                  <span>Realtime Broadcasts Active</span>
+                </div>
               </div>
             </div>
-
-            <button
-              onClick={() => {
-                roomLimitService.resetUsage();
-                addToast('Local guest daily usage reset for this browser');
-              }}
-              className="relative z-10 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-text-secondary hover:text-white hover:bg-white/10 hover:border-white/20 transition-all btn-glow whitespace-nowrap"
-            >
-              Reset Guest Limit
-            </button>
           </div>
         </div>
       )}

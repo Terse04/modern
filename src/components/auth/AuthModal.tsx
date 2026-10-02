@@ -142,7 +142,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 {isAuthenticated ? 'Your Account' : 'Sound Identity'}
               </h2>
               <p className="text-xs text-text-muted">
-                {isAuthenticated ? 'Manage your Supabase profile' : 'Sign in or start as a guest'}
+                {isAuthenticated ? 'Manage your account profile' : 'Sign in or start as a guest'}
               </p>
             </div>
           </div>
@@ -166,8 +166,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-semibold text-text-primary">{currentUser.name}</span>
                 {isAuthenticated && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full bg-accent-emerald/15 text-[10px] text-accent-emerald border border-accent-emerald/30 font-medium">
-                    <ShieldCheck className="w-3 h-3" /> Supabase
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-accent-emerald/15 text-[10px] text-accent-emerald border border-accent-emerald/30 font-medium">
+                    <ShieldCheck className="w-3 h-3" /> Verified
                   </span>
                 )}
               </div>
@@ -222,15 +222,62 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
               <div>
                 <label className="text-xs font-semibold text-text-secondary block mb-1">
-                  Avatar Image URL
+                  Avatar
                 </label>
-                <input
-                  type="url"
-                  value={editAvatar}
-                  onChange={(e) => setEditAvatar(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full bg-surface-elevated border border-border rounded-xl px-3.5 py-2 text-xs text-text-primary focus:outline-none focus:border-border-focus"
-                />
+                <div className="flex items-center gap-3 mb-2">
+                  <img
+                    src={editAvatar || currentUser.avatar}
+                    alt="Preview"
+                    className="w-12 h-12 rounded-full object-cover border border-white/20"
+                  />
+                  <div className="flex-1">
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-elevated border border-border hover:border-white/20 text-xs text-white">
+                      <span>Upload Avatar</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 2 * 1024 * 1024) {
+                            addToast('Avatar must be under 2MB', 'error');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            if (typeof ev.target?.result === 'string') {
+                              setEditAvatar(ev.target.result);
+                              addToast('Avatar loaded!', 'success');
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                    <p className="text-[10px] text-text-muted mt-1">Max 2MB. Presets below:</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 mt-2">
+                  {[
+                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+                    'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80',
+                    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80'
+                  ].map((url, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setEditAvatar(url)}
+                      className={`relative aspect-square rounded-xl overflow-hidden border transition-all ${
+                        editAvatar === url ? 'ring-2 ring-accent-cream border-transparent' : 'border-white/10 opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={url} alt={`Preset ${i + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <button
@@ -256,7 +303,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       : 'text-text-muted hover:text-text-secondary'
                   }`}
                 >
-                  Supabase Auth
+                  Account Login
                 </button>
                 <button
                   type="button"
@@ -394,7 +441,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       ) : (
                         <>
                           <span>
-                            {authMode === 'signin' && 'Sign In to Supabase'}
+                            {authMode === 'signin' && 'Sign In'}
                             {authMode === 'signup' && 'Create Account'}
                             {authMode === 'magic' && 'Send Magic Login Link'}
                           </span>

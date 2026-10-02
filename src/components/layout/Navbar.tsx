@@ -12,8 +12,8 @@ export const Navbar: React.FC = () => {
   const navLinks = [
     { name: 'Home', href: '/', icon: Compass },
     { name: 'Live Rooms', href: '/rooms', icon: Radio },
-    { name: 'Create Room', href: '/create', icon: PlusCircle },
-    { name: 'Join Room', href: '/join', icon: LogIn },
+    { name: 'Host a Room', href: '/create', icon: PlusCircle },
+    { name: 'Join', href: '/join', icon: LogIn },
     // Only rendered for admins. This is presentation, not authorization -
     // RequireAdmin on the route is what actually gates the page.
     ...(currentUser.isAdmin ? [{ name: 'Admin', href: '/admin', icon: Shield }] : []),
@@ -49,11 +49,11 @@ export const Navbar: React.FC = () => {
                   to={link.href}
                   className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-surface-elevated text-text-primary border border-border'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-surface-subtle'
+                      ? 'bg-white/10 text-white ring-1 ring-white/15'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-accent-cream' : 'text-text-muted'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-accent-cream' : 'text-white/50'}`} />
                   {link.name}
                 </Link>
               );
@@ -129,7 +129,7 @@ export const Navbar: React.FC = () => {
             <button
               onClick={() => setShowAuthModal(true)}
               className="flex items-center gap-2 pl-1.5 pr-3 py-1 bg-surface-elevated border border-border hover:border-border-focus rounded-full transition-all group cursor-pointer"
-              title="Change Sound Identity or Sign In"
+              title="Sound Identity & Account"
             >
               <div className="relative">
                 <img
@@ -141,19 +141,15 @@ export const Navbar: React.FC = () => {
                   isAuthenticated ? 'bg-accent-emerald' : 'bg-accent-amber'
                 }`} />
               </div>
-              <div className="flex flex-col text-left">
+              <div className="flex items-center gap-1.5">
                 <span className="text-xs font-medium text-text-primary group-hover:text-accent-cream leading-tight">
                   @{currentUser.username}
                 </span>
-                <span className="text-[9px] text-text-muted flex items-center gap-0.5">
-                  {isAuthenticated ? (
-                    <>
-                      <ShieldCheck className="w-2.5 h-2.5 text-accent-emerald" /> Supabase
-                    </>
-                  ) : (
-                    'Switch Profile'
-                  )}
-                </span>
+                {isAuthenticated && (
+                  <span title="Verified Member">
+                    <ShieldCheck className="w-3.5 h-3.5 text-accent-emerald" />
+                  </span>
+                )}
               </div>
             </button>
           </div>

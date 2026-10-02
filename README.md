@@ -38,6 +38,11 @@
 - **Heartbeat & Presence Tracking**: Detects joins and leaves precisely using Page Lifecycle APIs (`pagehide` / `visibilitychange`) backed by a robust `room_heartbeat` database check.
 - **Optimized Avatars**: Custom avatars are strictly downscaled via canvas (to ≤512px) before upload and gated by a 1.5MB database constraint.
 
+### ✨ Premium, Immersive UI & Glassmorphism
+- **Dynamic Landing Page**: Asymmetrical hero section featuring a 3D vinyl visualizer and a premium bento grid layout.
+- **Fluid & Responsive Design**: Fully responsive, with careful attention to mobile ergonomics (proper handling of 100dvh for iOS Safari safe areas, optimized visualizer margins).
+- **Polished Dashboards**: A consistent, premium aesthetic across Join, Create, and Admin interfaces with subtle micro-animations and deep dark modes.
+
 ---
 
 ## 🛠️ Tech Stack

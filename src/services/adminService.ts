@@ -261,19 +261,19 @@ export const adminService = {
       try {
         const { data, error } = await client.from('tracks').select('*').order('created_at', { ascending: false });
         if (!error && data) {
-          return Promise.all(data.map(async (t: any) => {
+          return Promise.all(data.map(async (t: { id: string, title: string, artist: string, album?: string, artwork?: string, duration: number, audio_url?: string, genre?: string }) => {
             let audioUrl = t.audio_url || '';
             audioUrl = await resolveStorageUrl(audioUrl);
-            const artwork = t.artwork ? await resolveStorageUrl(t.artwork) : t.artwork;
+            const artwork = t.artwork ? await resolveStorageUrl(t.artwork) : t.artwork || '';
             return {
               id: t.id,
               title: t.title,
               artist: t.artist,
-              album: t.album,
-              artwork,
+              album: t.album || '',
+              artwork: artwork || '',
               duration: t.duration,
               audioUrl,
-              genre: t.genre,
+              genre: t.genre || '',
             };
           }));
         }

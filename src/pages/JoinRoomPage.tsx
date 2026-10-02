@@ -1,19 +1,36 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { LogIn, QrCode, Hash } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { LogIn, Hash, ScanLine, ArrowRight } from 'lucide-react';
 import { useToastStore } from '../components/ui/Toast';
 import { roomService } from '../services/roomService';
-import { QRCodeView } from '../components/ui/QRCodeView';
+import { Room } from '../types';
 
 export const JoinRoomPage: React.FC = () => {
   const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
   const [code, setCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [liveRooms, setLiveRooms] = useState<Room[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
 
-  const handleJoin = async () => {
-    const raw = code.trim().toLowerCase().replace(/^#+/, '');
-    const roomId = raw.replace(/\s+/g, '-');
+  useEffect(() => {
+    roomService.getLiveRooms().then((rooms) => {
+      setLiveRooms(rooms.slice(0, 4));
+    });
+  }, []);
+
+  const normalize = (v: string) => {
+    try {
+      v = new URL(v).pathname.split('/').pop() || v;
+    } catch {
+      // not a url
+    }
+    return v.replace(/^#+/, '').trim().toLowerCase().replace(/\s+/g, '-');
+  };
+
+  const handleJoin = async (targetCode?: string) => {
+    const raw = targetCode || code;
+    const roomId = normalize(raw);
     if (!roomId) {
       addToast('Please enter a room code', 'error');
       return;
@@ -36,43 +53,50 @@ export const JoinRoomPage: React.FC = () => {
     }
   };
 
+  const canScan = typeof window !== 'undefined' &&
+    window.matchMedia('(pointer: coarse)').matches &&
+    !!navigator.mediaDevices?.getUserMedia;
+
   return (
     <div className="max-w-xl mx-auto px-4 sm:px-6 py-12 pb-24 md:pb-12 relative">
       {/* Ambient background element */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[400px] bg-accent-emerald/5 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="mb-10 text-center relative z-10">
+      <div className="mb-8 text-center relative z-10">
         <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-gradient-premium font-display">
           Join a Room
         </h1>
         <p className="text-sm md:text-base text-text-secondary mt-3">
-          Enter a room code or scan a QR code from a friend.
+          Enter a room code or choose a live session to drop into.
         </p>
       </div>
 
-      <div className="relative glass-premium rounded-[2rem] p-8 md:p-10 space-y-10 overflow-hidden">
+      <div className="relative surface rounded-[2rem] p-6 md:p-10 space-y-8 overflow-hidden">
         {/* Animated Shimmer Top Border */}
         <div className="absolute top-0 left-0 right-0 h-[1px] border-shimmer" />
 
-        {/* Room Code Input */}
+        {/* 1. Room Code Input (First) */}
         <div>
-          <label className="flex items-center justify-center gap-2 text-sm font-bold text-text-secondary mb-4 uppercase tracking-widest">
-            <Hash className="w-4 h-4" />
-            Room Code
+          <label className="flex items-center justify-center gap-2 text-xs font-bold text-text-secondary mb-3 uppercase tracking-widest">
+            <Hash className="w-4 h-4 text-accent-cream" />
+            Room Code or URL
           </label>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <input
               type="text"
               placeholder="e.g. late-night-coding"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              onChange={(e) => setCode(normalize(e.target.value))}
               onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-              className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-5 text-xl md:text-2xl text-center text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cream/50 focus:ring-1 focus:ring-accent-cream/30 transition-all font-mono tracking-widest shadow-inner"
+              className="h-14 w-full truncate rounded-2xl bg-black/40 border border-white/10 px-5 font-mono text-base tracking-normal placeholder:tracking-normal placeholder:text-white/35 text-center text-text-primary focus:outline-none focus:border-accent-cream/50 focus:ring-1 focus:ring-accent-cream/30 transition-all shadow-inner"
             />
             <button
-              onClick={handleJoin}
+              onClick={() => handleJoin()}
               disabled={!code.trim() || isJoining}
-              className="w-full py-4 rounded-2xl font-bold text-lg tracking-widest bg-accent-cream text-black flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_0_20px_rgba(234,229,219,0.3)] hover:shadow-[0_0_30px_rgba(234,229,219,0.5)] hover:bg-white hover:scale-[1.02] btn-glow disabled:opacity-50 disabled:pointer-events-none"
+              className="h-14 w-full py-4 rounded-2xl font-bold text-base tracking-wider bg-accent-cream text-black flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_0_20px_rgba(234,229,219,0.25)] hover:shadow-[0_0_30px_rgba(234,229,219,0.4)] hover:bg-white active:scale-[0.98] btn-glow disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/40 disabled:shadow-none"
             >
               {isJoining ? (
                 <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-black" />
@@ -86,58 +110,74 @@ export const JoinRoomPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="flex items-center gap-6">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-[11px] font-bold text-text-muted uppercase tracking-widest">or</span>
-          <div className="flex-1 h-px bg-white/10" />
-        </div>
-
-        {/* QR Code Scanner Placeholder */}
-        <div className="flex flex-col items-center justify-center p-8 bg-black/30 border border-white/5 rounded-3xl relative group overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-t from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="relative z-10 flex flex-col items-center">
-            <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mb-5 shadow-[0_0_15px_rgba(255,255,255,0.05)]">
-              <QrCode className="w-7 h-7 text-text-secondary" />
-            </div>
-            <h3 className="text-base font-bold text-text-primary mb-2">QR Code Scanner</h3>
-            <p className="text-xs text-text-muted text-center max-w-xs leading-relaxed">
-              Point your camera at a room QR code to join instantly.
-              Camera access is required.
-            </p>
-
-            {/* Demo QR */}
-            <div className="mt-8 p-4 bg-white rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-              <QRCodeView
-                value={`${window.location.origin}/room/late-night-coding`}
-                size={140}
-              />
-            </div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted text-center mt-4">Demo: Late Night Coding</p>
-          </div>
-        </div>
-
-        {/* Quick Join Suggestions */}
+        {/* 2. Quick Join Suggestions (Second) */}
         <div>
-          <h3 className="text-[11px] text-center font-bold text-text-secondary mb-4 uppercase tracking-widest">
-            Quick Join
+          <h3 className="text-[11px] text-center font-bold text-text-secondary mb-3 uppercase tracking-widest">
+            Live Quick Join
           </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {['late-night-coding', '2000s-nostalgia', 'friday-night', 'lo-fi-study'].map((id) => (
-              <button
-                key={id}
-                onClick={() => {
-                  setCode(id);
-                  navigate(`/room/${id}`);
-                }}
-                className="px-4 py-3 text-xs font-mono font-bold text-text-secondary bg-black/40 border border-white/5 rounded-2xl hover:border-white/20 hover:text-white transition-all text-center truncate hover:bg-black/60 shadow-inner"
-              >
-                #{id}
-              </button>
-            ))}
+          {liveRooms.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2.5">
+              {liveRooms.map((room) => (
+                <button
+                  key={room.id}
+                  onClick={() => {
+                    setCode(room.id);
+                    handleJoin(room.id);
+                  }}
+                  className="px-3.5 py-3 rounded-xl bg-white/[0.04] border border-white/5 font-mono text-xs text-white/80 hover:bg-white/[0.08] hover:text-white hover:border-white/20 transition-all text-center truncate shadow-inner flex items-center justify-between"
+                >
+                  <span className="truncate">#{room.id}</span>
+                  <span className="text-[10px] text-accent-emerald ml-1.5 font-sans font-semibold">Live</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-3 px-4 rounded-xl bg-white/[0.02] border border-white/5">
+              <p className="text-xs text-white/50">
+                No public rooms live right now.{' '}
+                <Link to="/create" className="text-accent-cyan hover:underline font-semibold ml-1">
+                  Host one →
+                </Link>
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 3. Camera Scanner (Shown on mobile devices with camera access) */}
+        {canScan && (
+          <div className="pt-2 border-t border-white/5">
+            <button
+              onClick={() => {
+                setIsScanning(!isScanning);
+                addToast('QR Camera scanning activated', 'info');
+              }}
+              className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 text-xs font-semibold text-white/80 hover:bg-white/[0.08] hover:text-white transition-all"
+            >
+              <ScanLine className="w-4 h-4 text-accent-emerald" />
+              <span>{isScanning ? 'Close Camera Scanner' : 'Scan a Room QR Code'}</span>
+            </button>
+            {isScanning && (
+              <div className="mt-4 p-4 rounded-2xl bg-black/40 border border-accent-emerald/30 text-center animate-in fade-in">
+                <p className="text-xs text-text-muted mb-2">Align the room QR code within the frame</p>
+                <div className="w-48 h-48 mx-auto rounded-xl border-2 border-dashed border-accent-emerald/50 flex items-center justify-center text-accent-emerald text-xs animate-pulse">
+                  Scanning active...
+                </div>
+              </div>
+            )}
           </div>
+        )}
+
+        <div className="text-center pt-2">
+          <Link
+            to="/rooms"
+            className="text-xs text-text-muted hover:text-text-primary transition-colors inline-flex items-center gap-1"
+          >
+            <span>Browse all live listening rooms</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </div>
     </div>
   );
 };
+

@@ -259,11 +259,11 @@ export const CreateRoomPage: React.FC = () => {
           />
         </div>
 
-        {/* Artwork Upload Zone */}
+        {/* Artwork Section (Presets First, Compact Dropzone) */}
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2.5">
             <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-widest">
-              Room Artwork / Cover
+              Cover Art
             </label>
             {artwork && (
               <button
@@ -272,9 +272,40 @@ export const CreateRoomPage: React.FC = () => {
                 className="text-[11px] text-accent-crimson hover:text-red-400 flex items-center gap-1 font-bold"
               >
                 <X className="w-3 h-3" />
-                Remove
+                Reset Cover
               </button>
             )}
+          </div>
+
+          {/* Presets First */}
+          <div role="radiogroup" aria-label="Cover art presets" className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 mb-3">
+            {ROOM_ARTWORK_PRESETS.map((preset) => {
+              const isSelected = artwork === preset.url;
+              return (
+                <button
+                  key={preset.id}
+                  role="radio"
+                  aria-checked={isSelected}
+                  type="button"
+                  onClick={() => {
+                    setArtwork(preset.url);
+                    addToast(`Selected "${preset.label}" cover`, 'info');
+                  }}
+                  className={`relative aspect-video overflow-hidden rounded-xl border transition-all ${
+                    isSelected
+                      ? 'scale-[1.04] ring-2 ring-accent-cyan border-accent-cyan shadow-lg'
+                      : 'border-white/10 opacity-75 hover:opacity-100 hover:border-white/30'
+                  }`}
+                >
+                  <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
+                  {isSelected && (
+                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-accent-cyan flex items-center justify-center text-black">
+                      <Check className="w-3 h-3 stroke-[3]" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <input
@@ -285,19 +316,19 @@ export const CreateRoomPage: React.FC = () => {
             className="hidden"
           />
 
-          {artwork ? (
-            /* Selected Artwork Preview */
+          {/* Compact Dropzone or Custom Selected Preview */}
+          {artwork && !ROOM_ARTWORK_PRESETS.some((p) => p.url === artwork) ? (
             <div className="relative rounded-2xl overflow-hidden border border-white/20 group bg-black/50 shadow-artwork-glow">
               <div className="aspect-[21/9] w-full relative overflow-hidden">
                 <img
                   src={artwork}
-                  alt="Room cover preview"
+                  alt="Custom cover preview"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex items-end p-4 justify-between">
                   <div className="flex items-center gap-2 text-white text-xs font-bold drop-shadow-md">
                     <Check className="w-4 h-4 text-accent-emerald" />
-                    <span>Custom Artwork Selected</span>
+                    <span>Custom Artwork Uploaded</span>
                   </div>
                   <button
                     type="button"
@@ -310,70 +341,23 @@ export const CreateRoomPage: React.FC = () => {
               </div>
             </div>
           ) : (
-            /* Interactive Drag & Drop Box */
             <div
               onClick={() => fileInputRef.current?.click()}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-4 transition-all duration-300 cursor-pointer group ${
+              className={`border border-dashed rounded-xl py-3 px-4 flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
                 isDragging
-                  ? 'border-accent-cream bg-accent-cream/5 scale-[1.02] shadow-[0_0_30px_rgba(234,229,219,0.1)]'
-                  : 'border-white/10 hover:border-accent-cream/50 bg-black/20 hover:bg-black/40'
+                  ? 'border-accent-cream bg-accent-cream/5 shadow-inner'
+                  : 'border-white/10 hover:border-white/30 bg-black/20 hover:bg-black/40'
               }`}
             >
-              <div className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Upload className="w-5 h-5 text-accent-cream" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-semibold text-text-primary">
-                  {isDragging ? 'Drop your image here' : 'Drag and drop cover image'}
-                </p>
-                <p className="text-xs text-text-muted mt-0.5">
-                  or <span className="text-accent-cream font-medium underline">browse from your computer</span> (PNG, JPG, WEBP &lt; 5MB)
-                </p>
-              </div>
+              <Upload className="w-4 h-4 text-accent-cream" />
+              <span className="text-xs text-text-secondary">
+                Or <span className="text-accent-cream font-medium underline">upload custom artwork</span> (PNG, JPG &lt; 5MB)
+              </span>
             </div>
           )}
-
-          {/* Preset Artwork Suggestions */}
-          <div className="mt-3">
-            <span className="text-[11px] text-text-muted block mb-2 font-medium">
-              Or pick an aesthetic vibe preset:
-            </span>
-            <div className="grid grid-cols-6 gap-2">
-              {ROOM_ARTWORK_PRESETS.map((preset) => {
-                const isSelected = artwork === preset.url;
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => {
-                      setArtwork(preset.url);
-                      addToast(`Selected "${preset.label}" cover`, 'info');
-                    }}
-                    title={preset.label}
-                    className={`relative rounded-xl overflow-hidden aspect-video border transition-all group ${
-                      isSelected
-                        ? 'border-accent-cream ring-2 ring-accent-cream/40 scale-105 shadow-md'
-                        : 'border-border/60 hover:border-accent-cream/50 opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <img
-                      src={preset.url}
-                      alt={preset.label}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                    />
-                    {isSelected && (
-                      <div className="absolute inset-0 bg-accent-cream/20 flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5 text-accent-cream drop-shadow" />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         {/* Visibility */}
@@ -381,21 +365,30 @@ export const CreateRoomPage: React.FC = () => {
           <label className="block text-[11px] font-bold text-text-secondary mb-2.5 uppercase tracking-widest">
             Visibility & Access
           </label>
-          <div className="grid grid-cols-3 gap-3">
+          <div role="radiogroup" aria-label="Room visibility" className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {visibilityOptions.map((opt) => {
               const Icon = opt.icon;
+              const isSelected = visibility === opt.value;
               return (
                 <button
                   key={opt.value}
+                  role="radio"
+                  aria-checked={isSelected}
+                  type="button"
                   onClick={() => setVisibility(opt.value)}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-300 ${
-                    visibility === opt.value
-                      ? 'bg-accent-cream text-black border-accent-cream shadow-[0_0_20px_rgba(234,229,219,0.2)] scale-[1.02]'
-                      : 'bg-black/30 border-white/10 text-text-secondary hover:border-white/30 hover:bg-black/50'
+                  className={`flex flex-col items-start p-3.5 rounded-2xl border text-left transition-all ${
+                    isSelected
+                      ? 'bg-accent-cream text-black border-accent-cream shadow-[0_0_15px_rgba(234,229,219,0.2)]'
+                      : 'bg-black/30 border-white/10 text-text-secondary hover:border-white/20'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-xs font-bold tracking-wide">{opt.label}</span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon className="w-4 h-4" />
+                    <span className="text-xs font-bold">{opt.label}</span>
+                  </div>
+                  <span className={`text-[11px] leading-tight ${isSelected ? 'text-black/75 font-medium' : 'text-text-muted'}`}>
+                    {opt.desc}
+                  </span>
                 </button>
               );
             })}
@@ -405,10 +398,11 @@ export const CreateRoomPage: React.FC = () => {
         {/* Advanced Settings Toggle */}
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
+          aria-expanded={showAdvanced}
           className="flex items-center gap-2 text-xs font-medium text-text-muted hover:text-text-secondary transition-colors"
         >
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
-          More settings →
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${showAdvanced ? 'rotate-180' : ''}`} />
+          <span>More settings</span>
         </button>
 
         {showAdvanced && (
@@ -474,20 +468,28 @@ export const CreateRoomPage: React.FC = () => {
             <ArrowRight className="w-4 h-4" />
           </Link>
         ) : (
-          <button
-            className="w-full py-4 rounded-2xl font-bold text-base tracking-widest bg-accent-cream text-black flex items-center justify-center gap-3 transition-all duration-300 shadow-[0_0_20px_rgba(234,229,219,0.3)] hover:shadow-[0_0_30px_rgba(234,229,219,0.5)] hover:bg-white hover:scale-[1.02] mt-6 btn-glow disabled:opacity-50 disabled:pointer-events-none"
-            onClick={handleCreate}
-            disabled={!name.trim() || isCreating}
-          >
-            {isCreating ? (
-              <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-black" />
-            ) : (
-              <>
-                <Radio className="w-5 h-5" />
-                CREATE ROOM
-              </>
+          <div>
+            <button
+              aria-describedby="cta-hint"
+              className="h-14 w-full rounded-2xl bg-accent-cream font-semibold text-black transition-all duration-300 shadow-[0_0_20px_rgba(234,229,219,0.3)] hover:shadow-[0_0_30px_rgba(234,229,219,0.5)] hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/40 disabled:shadow-none flex items-center justify-center gap-2"
+              onClick={handleCreate}
+              disabled={!name.trim() || isCreating}
+            >
+              {isCreating ? (
+                <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-black" />
+              ) : (
+                <>
+                  <Radio className="w-5 h-5" />
+                  <span>Host a Room</span>
+                </>
+              )}
+            </button>
+            {!name.trim() && (
+              <p id="cta-hint" className="mt-2 text-center text-xs text-white/50">
+                Name your room to continue
+              </p>
             )}
-          </button>
+          </div>
         )}
       </div>
     </div>
