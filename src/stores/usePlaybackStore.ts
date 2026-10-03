@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Track, PlaybackStatus, DriftMetrics, QueueItem } from '../types';
+import { Track, PlaybackStatus, DriftMetrics, QueueItem, PlaybackPermission } from '../types';
 import { globalAudioEngine } from '../lib/AudioPlayer';
 import { realtimeService, PlaybackState } from '../services/realtimeService';
 import { CURATED_OPEN_TRACKS } from '../services/openMusicService';
@@ -18,6 +18,7 @@ interface PlaybackStore {
   isRepeating: boolean;
   isHost: boolean;
   isSoloMode: boolean; 
+  playbackPermissions: PlaybackPermission;
   revision: number;
   serverTimestamp: number;
   driftMetrics: DriftMetrics;
@@ -26,10 +27,12 @@ interface PlaybackStore {
 
   // Actions
   setIsHost: (isHost: boolean) => void;
+  setPlaybackPermissions: (permissions: PlaybackPermission) => void;
+  canControlPlayback: () => boolean;
   toggleSoloMode: () => void;
   voteSkip: (userId: string) => void;
   resetSkipVotes: () => void;
-  initRoom: (roomId: string, initialTrack?: Track, isHostUser?: boolean) => () => void;
+  initRoom: (roomId: string, initialTrack?: Track, isHostUser?: boolean, initialPermissions?: PlaybackPermission) => () => void;
   setTrack: (track: Track, autoPlay?: boolean) => Promise<void>;
   play: () => Promise<void>;
   pause: () => void;
@@ -89,6 +92,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     isRepeating: false,
     isHost: false,
     isSoloMode: false,
+    playbackPermissions: 'everyone',
     skipVotes: [],
     revision: 0,
     serverTimestamp: Date.now(),
@@ -99,6 +103,13 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       lastCalculated: Date.now(),
     },
 
+    canControlPlayback: () => {
+      const { isHost, isSoloMode, playbackPermissions } = get();
+      return isHost || isSoloMode || playbackPermissions === 'everyone';
+    },
+
+    setPlaybackPermissions: (permissions: PlaybackPermission) => set({ playbackPermissions: permissions }),
+
     resetPlaybackState: () => {
       set({
         currentRoomId: null,
@@ -107,6 +118,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
         position: 0,
         duration: 0,
         isHost: false,
+        playbackPermissions: 'everyone',
         isSoloMode: false,
         revision: 0,
         serverTimestamp: 0,
@@ -151,13 +163,14 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       set({ skipVotes: [] });
     },
 
-    initRoom: (roomId: string, initialTrack?: Track, isHostUser: boolean = false) => {
+    initRoom: (roomId: string, initialTrack?: Track, isHostUser: boolean = false, initialPermissions: PlaybackPermission = 'everyone') => {
       const trackToPlay = initialTrack || get().currentTrack || CURATED_OPEN_TRACKS[0];
       set({
         currentRoomId: roomId,
         currentTrack: trackToPlay,
         duration: trackToPlay.duration,
         isHost: isHostUser,
+        playbackPermissions: initialPermissions,
         isSoloMode: false,
         revision: 0,
       });
@@ -199,7 +212,11 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     },
 
     setTrack: async (track: Track, autoPlay = true) => {
-      const { currentRoomId, revision, isHost } = get();
+      if (!get().canControlPlayback()) {
+        console.warn('[usePlaybackStore] Permission denied for setTrack');
+        return;
+      }
+      const { currentRoomId, revision } = get();
 
       set({
         currentTrack: track,
@@ -209,9 +226,8 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
       });
       await globalAudioEngine.loadTrack(track.audioUrl, autoPlay);
 
-      // HOST: Write the new track to the authoritative room_playback row
-      // so all listeners pick it up via the postgres_changes subscription.
-      if (isHost && currentRoomId && isSupabaseConfigured && supabase) {
+      // Write the new track to the authoritative room_playback row
+      if (currentRoomId && isSupabaseConfigured && supabase) {
         const { data } = await supabase.rpc('set_playback_state', {
           p_room_id: currentRoomId,
           p_status: autoPlay ? 'playing' : 'paused',
@@ -226,15 +242,15 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     },
 
     play: async () => {
-      const { currentTrack, currentRoomId, revision } = get();
-      if (!currentTrack) return;
+      const { currentTrack, currentRoomId, revision, canControlPlayback } = get();
+      if (!currentTrack || !canControlPlayback()) return;
 
       await globalAudioEngine.play();
       const currentPos = globalAudioEngine.getCurrentTime();
       
       set({ status: 'playing', position: currentPos });
 
-      if (get().isHost && currentRoomId && isSupabaseConfigured && supabase) {
+      if (currentRoomId && isSupabaseConfigured && supabase) {
         const { data } = await supabase.rpc('set_playback_state', {
           p_room_id: currentRoomId,
           p_status: 'playing',
@@ -248,13 +264,15 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     },
 
     pause: () => {
-      const { currentTrack, currentRoomId, revision } = get();
+      const { currentTrack, currentRoomId, revision, canControlPlayback } = get();
+      if (!canControlPlayback()) return;
+
       globalAudioEngine.pause();
       const currentPos = globalAudioEngine.getCurrentTime();
 
       set({ status: 'paused', position: currentPos });
 
-      if (get().isHost && currentRoomId && currentTrack && isSupabaseConfigured && supabase) {
+      if (currentRoomId && currentTrack && isSupabaseConfigured && supabase) {
         supabase.rpc('set_playback_state', {
           p_room_id: currentRoomId,
           p_status: 'paused',
@@ -269,6 +287,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     },
 
     togglePlay: () => {
+      if (!get().canControlPlayback()) return;
       if (get().status === 'playing') {
         get().pause();
       } else {
@@ -277,12 +296,13 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     },
 
     seek: (seconds: number) => {
-      const { currentTrack, currentRoomId, revision, status } = get();
-      globalAudioEngine.seek(seconds);
+      const { currentTrack, currentRoomId, revision, status, canControlPlayback } = get();
+      if (!canControlPlayback()) return;
 
+      globalAudioEngine.seek(seconds);
       set({ position: seconds });
 
-      if (get().isHost && currentRoomId && currentTrack && isSupabaseConfigured && supabase) {
+      if (currentRoomId && currentTrack && isSupabaseConfigured && supabase) {
         supabase.rpc('set_playback_state', {
           p_room_id: currentRoomId,
           p_status: status,
@@ -313,8 +333,8 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     },
 
     nextTrack: (queue: QueueItem[]) => {
-      const { currentRoomId, revision } = get();
-      if (!queue || queue.length === 0 || !currentRoomId) return;
+      const { currentRoomId, revision, canControlPlayback } = get();
+      if (!canControlPlayback() || !queue || queue.length === 0 || !currentRoomId) return;
       
       if (isSupabaseConfigured && supabase) {
          supabase.rpc('advance_room_track', { p_room_id: currentRoomId, p_expected_revision: revision });
@@ -322,7 +342,7 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     },
 
     previousTrack: () => {
-      // Per instructions: previousTrack = restart current track
+      if (!get().canControlPlayback()) return;
       get().seek(0);
     },
 

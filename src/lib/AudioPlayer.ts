@@ -83,8 +83,10 @@ export class AudioEngine {
     });
 
     this.audio.addEventListener('error', () => {
-      console.warn('[AudioEngine] HTMLAudioElement error, falling back to Web Audio Synth');
-      this.startSynthFallback();
+      const errorMsg = this.audio.error?.message || 'Audio playback error';
+      console.warn('[AudioEngine] HTMLAudioElement error:', errorMsg);
+      this.events.onStatusChange?.('paused');
+      this.events.onError?.(errorMsg);
     });
   }
 

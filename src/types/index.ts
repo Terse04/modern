@@ -172,7 +172,8 @@ export type SyncEventType =
   | 'PRESENCE_SYNC'
   | 'CHAT_MESSAGE'
   | 'REACTION'
-  | 'FORCE_RESYNC';
+  | 'FORCE_RESYNC'
+  | 'ROOM_SETTINGS_UPDATE';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface SyncEvent<T = any> {

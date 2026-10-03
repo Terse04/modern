@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { ChatMessage, FloatingReaction, QueueItem, RoomMember, SyncEvent } from '../types';
+import { ChatMessage, FloatingReaction, QueueItem, RoomMember, SyncEvent, RoomSettings } from '../types';
 import { realtimeService } from '../services/realtimeService';
 import { useAuthStore } from '../stores/useAuthStore';
 import { roomService } from '../services/roomService';
@@ -11,6 +11,7 @@ export interface RealtimeRoomHandlers {
   onMemberUpdate: (member: RoomMember) => void;
   onMemberLeft: (userId: string) => void;
   onPresenceSync?: (members: RoomMember[]) => void;
+  onRoomSettingsUpdate?: (settings: RoomSettings) => void;
 }
 
 /**
@@ -70,6 +71,14 @@ export function useRealtimeRoom(
             handlersRef.current.onMemberLeft(member.user.id);
           } else {
             handlersRef.current.onMemberUpdate(member);
+          }
+          break;
+        }
+
+        case 'ROOM_SETTINGS_UPDATE': {
+          const { settings } = event.payload as { settings: RoomSettings };
+          if (settings) {
+            handlersRef.current.onRoomSettingsUpdate?.(settings);
           }
           break;
         }
@@ -176,12 +185,26 @@ export function useRealtimeRoom(
     return member;
   }, [roomId, broadcastPresence]);
 
+  const broadcastRoomSettings = useCallback(
+    async (settings: RoomSettings) => {
+      if (!roomId) return;
+      await realtimeService.broadcastEvent(
+        roomId,
+        'ROOM_SETTINGS_UPDATE',
+        { settings },
+        userRef.current.id
+      );
+    },
+    [roomId]
+  );
+
   return {
     currentUser,
     broadcastChat,
     broadcastReaction,
     broadcastQueueUpdate,
     broadcastPresence,
+    broadcastRoomSettings,
     joinAsCurrentUser,
   };
 }

@@ -16,7 +16,7 @@ import {
   Trash2,
   Plus,
 } from 'lucide-react';
-import { Room, RoomMember, QueueItem, ChatMessage, FloatingReaction, Track } from '../types';
+import { Room, RoomMember, QueueItem, ChatMessage, FloatingReaction, Track, RoomSettings } from '../types';
 import { roomService } from '../services/roomService';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -79,6 +79,8 @@ export const RoomPage: React.FC = () => {
     isMuted,
     isShuffled,
     isRepeating,
+    isSoloMode,
+    setPlaybackPermissions,
     initRoom,
     togglePlay,
     seek,
@@ -95,6 +97,7 @@ export const RoomPage: React.FC = () => {
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const isHostUser = Boolean(room && (room.host.id === currentUser.id || currentUser.isAdmin));
+  const canControl = isHostUser || isSoloMode || room?.settings.playbackPermissions === 'everyone';
 
   const skipThreshold = Math.max(1, Math.ceil(members.length / 2));
   const hasVotedToSkip = skipVotes.includes(currentUser.id);
@@ -129,7 +132,7 @@ export const RoomPage: React.FC = () => {
   }, [showMobileVolume]);
 
   // ─── Realtime sync hook ────────────────────────────────────────────────────
-  const { broadcastChat, broadcastReaction, broadcastQueueUpdate, joinAsCurrentUser } =
+  const { broadcastChat, broadcastReaction, broadcastQueueUpdate, broadcastRoomSettings, joinAsCurrentUser } =
     useRealtimeRoom(roomId, {
       onChatMessage: useCallback((msg: ChatMessage) => {
         setChatMessages((prev) => [...prev, msg]);
@@ -143,6 +146,14 @@ export const RoomPage: React.FC = () => {
       onQueueUpdate: useCallback((queue: QueueItem[]) => {
         setQueue(queue);
       }, []),
+      onRoomSettingsUpdate: useCallback((newSettings: RoomSettings) => {
+        setRoom((prev) => (prev ? { ...prev, settings: newSettings } : null));
+        setPlaybackPermissions(newSettings.playbackPermissions);
+        addToast(
+          `Room permissions updated: ${newSettings.playbackPermissions === 'host_only' ? 'Host only' : 'Everyone'}`,
+          'info'
+        );
+      }, [setPlaybackPermissions, addToast]),
       onMemberUpdate: useCallback((member: RoomMember) => {
         setMembers((prev) => {
           const exists = prev.some((m) => m.user.id === member.user.id);
@@ -184,24 +195,21 @@ export const RoomPage: React.FC = () => {
     loadRoom();
   }, [roomId, navigate, addToast]);
 
-  // Sync Host identity to store
+  // Sync Host identity & permissions to store
   useEffect(() => {
     setIsHost(isHostUser);
-  }, [isHostUser, setIsHost]);
+    if (room?.settings?.playbackPermissions) {
+      setPlaybackPermissions(room.settings.playbackPermissions);
+    }
+  }, [isHostUser, setIsHost, room?.settings?.playbackPermissions, setPlaybackPermissions]);
 
-  // Host sync heartbeat removed as it's now handled by the server state
-  // We can just keep the effect signature without broadcastHeartbeat if needed,
-  // or remove it entirely. Let's remove the heartbeat interval.
-  useEffect(() => {
-    // Handled authoritatively by room_playback now
-  }, [isHostUser, status, room]);
-
-  // Init playback
+  // Init playback once per room
   useEffect(() => {
     if (!roomId || !room) return;
-    const cleanup = initRoom(roomId, room.currentTrack, isHostUser);
+    const cleanup = initRoom(roomId, room.currentTrack, isHostUser, room.settings.playbackPermissions);
     return cleanup;
-  }, [roomId, room, initRoom, isHostUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, room?.id, initRoom, isHostUser]);
 
   // Broadcast presence when room is ready
   useEffect(() => {
@@ -218,12 +226,12 @@ export const RoomPage: React.FC = () => {
   // Progress bar seek
   const handleProgressClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!progressRef.current || !duration) return;
+      if (!progressRef.current || !duration || !canControl) return;
       const rect = progressRef.current.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       seek(ratio * duration);
     },
-    [duration, seek]
+    [duration, seek, canControl]
   );
 
   // Send chat — optimistic local update + broadcast
@@ -320,10 +328,17 @@ export const RoomPage: React.FC = () => {
     }
   };
 
-  const handleRemoveQueueItem = (itemId: string) => {
+  const handleRemoveQueueItem = async (itemId: string) => {
     const newQueue = queue.filter((q) => q.id !== itemId);
     setQueue(newQueue);
     broadcastQueueUpdate(newQueue);
+    if (roomId) {
+      try {
+        await roomService.removeQueueItem(roomId, itemId);
+      } catch (err) {
+        console.warn('[RoomPage] Failed to remove queue item from DB:', err);
+      }
+    }
     addToast('Removed from queue', 'info');
   };
 
@@ -425,8 +440,11 @@ export const RoomPage: React.FC = () => {
         <div className="w-full max-w-lg mx-auto space-y-1.5 px-2">
           <div
             ref={progressRef}
-            className="relative h-1.5 bg-white/10 rounded-full cursor-pointer group"
+            className={`relative h-1.5 bg-white/10 rounded-full group ${
+              canControl ? 'cursor-pointer' : 'cursor-default opacity-80'
+            }`}
             onClick={handleProgressClick}
+            title={canControl ? 'Seek playback' : 'Host controls playback'}
           >
             <div
               className="absolute inset-y-0 left-0 bg-accent-cream rounded-full transition-[width] duration-100"
@@ -457,16 +475,32 @@ export const RoomPage: React.FC = () => {
 
           <button
             onClick={() => previousTrack()}
-            className="p-2.5 text-text-secondary hover:text-text-primary transition-colors"
-            title="Previous"
+            disabled={!canControl}
+            className={`p-2.5 transition-colors ${
+              canControl
+                ? 'text-text-secondary hover:text-text-primary'
+                : 'text-text-muted/40 cursor-not-allowed'
+            }`}
+            title={canControl ? 'Previous' : 'Host controls playback'}
           >
             <SkipBack className="w-5 h-5" />
           </button>
 
           <button
             onClick={togglePlay}
-            className="w-14 h-14 flex items-center justify-center bg-accent-cream text-bg rounded-full hover:bg-accent-creamHover shadow-glow-subtle transition-all active:scale-95"
-            title={status === 'playing' ? 'Pause' : 'Play'}
+            disabled={!canControl}
+            className={`w-14 h-14 flex items-center justify-center rounded-full shadow-glow-subtle transition-all active:scale-95 ${
+              canControl
+                ? 'bg-accent-cream text-bg hover:bg-accent-creamHover cursor-pointer'
+                : 'bg-accent-cream/40 text-bg/60 cursor-not-allowed'
+            }`}
+            title={
+              !canControl
+                ? 'Host controls playback'
+                : status === 'playing'
+                ? 'Pause'
+                : 'Play'
+            }
           >
             {status === 'playing' ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
           </button>
@@ -781,7 +815,11 @@ export const RoomPage: React.FC = () => {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
         room={room}
-        onSettingsUpdated={(updated) => setRoom(updated)}
+        onSettingsUpdated={(updated) => {
+          setRoom(updated);
+          setPlaybackPermissions(updated.settings.playbackPermissions);
+          broadcastRoomSettings(updated.settings);
+        }}
       />
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
       <AudioUploadModal

@@ -104,90 +104,51 @@ export const storageService = {
     let audioUrl = '';
     let artworkUrl = options.customArtworkUrl || '';
 
-    // 2. Try Supabase Storage upload (Direct or via signed URL)
+    // 2. Upload to Supabase Storage if configured
     if (isSupabaseConfigured && supabase) {
-      try {
-        const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        
-        const { data: sessionData } = await supabase.auth.getSession();
-        const authUserId = sessionData.session?.user?.id || 'guest';
-        const storagePath = `${authUserId}/${Date.now()}_${cleanName}`;
-
-        onProgress?.(60);
-        // Try direct upload first
-        const { error: uploadErr } = await supabase.storage
-          .from('tracks')
-          .upload(storagePath, file, {
-            cacheControl: '3600',
-            upsert: true,
-          });
-
-        if (!uploadErr) {
-          // Store the raw storage path — the bucket is private, so
-          // getPublicUrl() would return a 403 URL. Paths are resolved to
-          // signed URLs at read time via resolveStorageUrl().
-          audioUrl = storagePath;
-        } else {
-          // If direct upload failed due to RLS, request a signed upload URL from serverless API
-          try {
-            const accessToken = sessionData.session?.access_token;
-            const apiRes = await fetch(`/api/upload-url?path=${encodeURIComponent(storagePath)}`, {
-              headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-            });
-            if (apiRes.ok) {
-              const signData = await apiRes.json();
-              if (signData?.token) {
-                const { error: signUpErr } = await supabase.storage
-                  .from('tracks')
-                  .uploadToSignedUrl(storagePath, signData.token, file);
-                if (!signUpErr) {
-                  audioUrl = storagePath;
-                }
-              }
-            }
-          } catch (e) {
-            console.warn('[StorageService] Signed upload request failed:', e);
-          }
-        }
-
-        // Upload custom artwork if provided
-        if (artworkFile) {
-          const artExt = artworkFile.name.split('.').pop() || 'jpg';
-          const artPath = `${authUserId}/artwork_${Date.now()}_art.${artExt}`;
-          const { error: artErr } = await supabase.storage.from('tracks').upload(artPath, artworkFile, {
-            cacheControl: '3600',
-            upsert: true,
-          });
-          if (!artErr) {
-            artworkUrl = artPath;
-          }
-        }
-      } catch (e) {
-        console.warn('[StorageService] Supabase upload failed:', e);
+      const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authUserId = sessionData.session?.user?.id;
+      if (!authUserId) {
+        throw new Error('Please sign in to your account before uploading audio to share with the room.');
       }
+
+      const storagePath = `${authUserId}/${Date.now()}_${cleanName}`;
+      onProgress?.(60);
+
+      const { error: uploadErr } = await supabase.storage
+        .from('tracks')
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadErr) {
+        console.error('[StorageService] Supabase upload failed:', uploadErr);
+        throw new Error(`Failed to upload track to server: ${uploadErr.message}`);
+      }
+
+      audioUrl = storagePath;
+
+      // Upload custom artwork if provided
+      if (artworkFile) {
+        const artExt = artworkFile.name.split('.').pop() || 'jpg';
+        const artPath = `${authUserId}/artwork_${Date.now()}_art.${artExt}`;
+        const { error: artErr } = await supabase.storage.from('tracks').upload(artPath, artworkFile, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+        if (!artErr) {
+          artworkUrl = artPath;
+        }
+      }
+    } else {
+      // Offline / demo fallback when Supabase is not configured
+      audioUrl = URL.createObjectURL(file);
+      await storeBlobLocally(trackId, file);
     }
 
     onProgress?.(80);
-
-    // 3. Portable Data URL or local object URL fallback if remote storage upload could not complete
-    if (!audioUrl) {
-      try {
-        // For files < 8MB, generate a portable base64 Data URL so all listeners across the room can decode it
-        if (file.size < 8 * 1024 * 1024) {
-          audioUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-        } else {
-          audioUrl = URL.createObjectURL(file);
-        }
-      } catch {
-        audioUrl = URL.createObjectURL(file);
-      }
-      await storeBlobLocally(trackId, file);
-    }
 
     // Fallback artwork if none provided: curated Unsplash cover
     if (!artworkUrl) {
